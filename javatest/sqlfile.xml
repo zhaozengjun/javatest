@@ -1,0 +1,2076 @@
+﻿<?xml version="1.0" encoding = "UTF-8"?>
+<sql_codes>
+
+<!-- 主库配置 -->
+	<sql name="MASTER_ORACLE_URL">
+		jdbc:oracle:thin:@10.64.16.29:1521:cntvvpe
+	</sql>
+	<sql name="MASTER_ORACLE_USER">
+		movedata
+	</sql>
+	<sql name="MASTER_ORACLE_PWD">
+		Cn2TV8Vms
+	</sql>
+	
+	<!-- 从库配置 	-->
+	<sql name="SLAVE_ORACLE_URL">
+		jdbc:oracle:thin:@10.64.16.29:1521:cntvvpe
+	</sql>
+	<sql name="SLAVE_ORACLE_USER">
+		movedata
+	</sql>	
+	<sql name="SLAVE_ORACLE_PWD">
+		Cn2TV8Vms
+	</sql> 
+	
+
+
+	<!-- 主库配置 -->
+	<sql name="MASTER_ORACLE_URL">
+		jdbc:oracle:thin:@10.64.16.48:1521:vms
+	</sql>
+	<sql name="MASTER_ORACLE_USER">
+		cntvvms
+	</sql>
+	<sql name="MASTER_ORACLE_PWD">
+		Cn2TV8Vms
+	</sql>
+	
+	<!-- 从库配置 	-->
+	<sql name="SLAVE_ORACLE_URL">
+		jdbc:oracle:thin:@10.64.16.48:1521:vms
+	</sql>
+	<sql name="SLAVE_ORACLE_USER">
+		cntvvms
+	</sql>	
+	<sql name="SLAVE_ORACLE_PWD">
+		Cn2TV8Vms
+	</sql> 
+	
+	
+	<!-- 主库配置 -->
+	<!-- 
+	<sql name="MASTER_ORACLE_URL">
+		jdbc:oracle:thin:@172.18.117.193:1521:standby
+	</sql>
+	<sql name="MASTER_ORACLE_USER">
+		movedata
+	</sql>
+	<sql name="MASTER_ORACLE_PWD">
+		movedata
+	</sql>
+	
+	从库配置 
+	<sql name="SLAVE_ORACLE_URL">
+		jdbc:oracle:thin:@172.18.117.193:1521:standby
+	</sql>
+	<sql name="SLAVE_ORACLE_USER">
+		movedata
+	</sql>	
+	<sql name="SLAVE_ORACLE_PWD">
+		movedata
+	</sql>
+	-->
+	
+	<!-- MYSQL -->
+	<sql name="MYSQL_URL">
+		jdbc:mysql://10.78.68.5:3306/datasupport?useServerPrepStmts=true&amp;cachePrepStmts=true&amp;rewriteBatchedStatements=true&amp;useUnicode=true&amp;characterEncoding=utf8
+	</sql>
+	<sql name="MYSQL_USER">
+		dsuser
+	</sql>
+	<sql name="MYSQL_PWD">
+ 	d!s@dance
+	</sql>
+
+	<!-- HTTP提交件数 -->
+	<sql name="HTTP_COUNT">
+		200
+	</sql>
+	<!-- HTTP发送线程阻塞timeout时间(秒) -->
+	<sql name="THREAD_SIGNAL_TIMEOUT">
+		180
+	</sql>
+
+	<!-- 视频推荐接口 -->
+	<sql name="ADD_RECOMMEND_URL">
+		http://10.78.68.12:8080/pdi/api/addRecommend
+	</sql>
+	
+	<!-- log提交级别  DEBUG或INFO或ERROR -->
+	<sql name="LOG_LEVEL">
+		INFO
+	</sql>
+	
+
+	<sql name="SQL_REFRESH_DIM_VIDEO_CLASS">
+		--更新视频分类维度表
+		DECLARE
+		BEGIN
+		DELETE  DIM_VIDEO_CLASS;
+		INSERT INTO DIM_VIDEO_CLASS 
+		(
+		CLASS_CODE,
+		CLASS_NAME,
+		CLASS_CODE_1,
+		CLASS_NAME_1,
+		CLASS_CODE_2,
+		CLASS_NAME_2,
+		CLASS_CODE_3,
+		CLASS_NAME_3,
+		CLASS_CODE_4,
+		CLASS_NAME_4,
+		CLASS_CODE_5,
+		CLASS_NAME_5,
+		CLASS_LEVEL
+		)
+		SELECT
+			A1.CLASS_CODE,
+			M.CLASSNAME AS CLASS_NAME,
+			A1.CLASS_CODE_1,
+			M1.CLASSNAME AS CLASS_NAME_1,
+			A1.CLASS_CODE_2,
+			M2.CLASSNAME AS CLASS_NAME_2,
+			A1.CLASS_CODE_3,
+			M3.CLASSNAME AS CLASS_NAME_3,
+			A1.CLASS_CODE_4,
+			M4.CLASSNAME AS CLASS_NAME_4,
+			A1.CLASS_CODE_5,
+			M5.CLASSNAME AS CLASS_NAME_5,
+			A1.CLASS_LEVEL
+		FROM
+		(
+			WITH AC AS
+			(
+			  SELECT
+			  	CLASSCODE,
+			  	PARENTCLASS,
+			  	LEVEL AS CLASS_LEVEL,
+			  	MAX(LEVEL)OVER(PARTITION BY CLASSCODE) AS MAX_LEVEL
+			  FROM VMS_CLASSIFICATION 
+			  CONNECT BY PRIOR CLASSCODE = PARENTCLASS
+			  START WITH CLASSCODE IN
+			  (
+			  	SELECT  classcode FROM VMS_CLASSIFICATION 
+			  	WHERE PARENTCLASS IS NULL	--只取根节点
+			  )
+			)
+			SELECT 
+				A.CLASSCODE AS CLASS_CODE,		--分类
+				CASE WHEN A.CLASS_LEVEL = 1 THEN A.CLASSCODE
+					ELSE 	(
+						  SELECT
+						  	B.CLASSCODE
+						  FROM VMS_CLASSIFICATION B
+						  WHERE LEVEL = A.CLASS_LEVEL
+						  CONNECT BY PRIOR B.PARENTCLASS = B.CLASSCODE
+						  START WITH B.CLASSCODE  = A.CLASSCODE
+						) END
+			 	AS CLASS_CODE_1,
+						CASE WHEN A.CLASS_LEVEL &lt;= 2 THEN A.CLASSCODE
+							ELSE 	(
+								  SELECT
+								  	B.CLASSCODE
+								  FROM VMS_CLASSIFICATION B
+								  WHERE LEVEL = A.CLASS_LEVEL - 1
+								  CONNECT BY PRIOR B.PARENTCLASS = B.CLASSCODE
+								  START WITH B.CLASSCODE  = A.CLASSCODE
+								) END
+					 	AS CLASS_CODE_2,
+						CASE WHEN A.CLASS_LEVEL &lt;= 3 THEN A.CLASSCODE
+							ELSE 	(
+								  SELECT
+								  	B.CLASSCODE
+								  FROM VMS_CLASSIFICATION B
+								  WHERE LEVEL = A.CLASS_LEVEL - 2
+								  CONNECT BY PRIOR B.PARENTCLASS = B.CLASSCODE
+								  START WITH B.CLASSCODE  = A.CLASSCODE
+								) END
+					 	AS CLASS_CODE_3,
+						CASE WHEN A.CLASS_LEVEL &lt;= 4 THEN A.CLASSCODE
+							ELSE 	(
+								  SELECT
+								  	B.CLASSCODE
+								  FROM VMS_CLASSIFICATION B
+								  WHERE LEVEL = A.CLASS_LEVEL - 3
+								  CONNECT BY PRIOR B.PARENTCLASS = B.CLASSCODE
+								  START WITH B.CLASSCODE  = A.CLASSCODE
+								) END
+					 	AS CLASS_CODE_4,
+						CASE WHEN A.CLASS_LEVEL &lt;= 5 THEN A.CLASSCODE
+							ELSE 	(
+								  SELECT
+								  	B.CLASSCODE
+								  FROM VMS_CLASSIFICATION B
+								  WHERE LEVEL = A.CLASS_LEVEL - 4
+								  CONNECT BY PRIOR B.PARENTCLASS = B.CLASSCODE
+								  START WITH B.CLASSCODE  = A.CLASSCODE
+								) END
+					 	AS CLASS_CODE_5,
+						A.CLASS_LEVEL
+					FROM AC A
+				)A1
+				LEFT JOIN VMS_CLASSIFICATION M
+					ON M.CLASSCODE = A1.CLASS_CODE
+				LEFT JOIN VMS_CLASSIFICATION M1
+					ON M1.CLASSCODE = A1.CLASS_CODE_1
+				LEFT JOIN VMS_CLASSIFICATION M2
+					ON M2.CLASSCODE = A1.CLASS_CODE_2
+				LEFT JOIN VMS_CLASSIFICATION M3
+					ON M3.CLASSCODE = A1.CLASS_CODE_3
+				LEFT JOIN VMS_CLASSIFICATION M4
+					ON M4.CLASSCODE = A1.CLASS_CODE_4
+				LEFT JOIN VMS_CLASSIFICATION M5
+					ON M5.CLASSCODE = A1.CLASS_CODE_5
+				;
+				--在KB_VIDEOINFO中删除掉在VMS_VIDEOINFO中已经不存在的记录
+				DELETE KB_VIDEOINFO T
+				WHERE NOT EXISTS(
+					SELECT 1
+					FROM VMS_VIDEOINFO S
+					WHERE S.VIDEOID = T.VIDEOID
+				);
+				--在KB_TAG_VIDEO中删除掉知识点已不存在，或者知识点已经设为禁用的知识点
+        		DELETE KB_TAG_VIDEO T
+				WHERE NOT EXISTS(
+					SELECT 1
+					FROM KB_TAG S
+					WHERE S.TAG_ID = T.TAG_ID
+          			AND S.TAG_STATUS = '0'
+				);
+				END;
+	</sql>
+
+
+
+	<sql name="SQL_REFRESH_KB_VIDEOCOLUMN">
+		--生成统计用视频栏目表
+		DECLARE
+		BEGIN
+		DELETE KB_VIDEOCOLUMN;			--全部删除
+		INSERT INTO KB_VIDEOCOLUMN	--统计用视频与视频集关系表
+		(
+			COLUMNKEYID,		--栏目ID
+			VIDEOID,			--视频ID
+			RECOMMENDNUM,		--同一视频集内优先推荐序号
+			updatedtime
+		)
+		SELECT
+			SA.COLUMNKEYID,
+			SA.VIDEOID,
+			SA.RECOMMENDNUM,
+			SYSDATE
+		FROM
+		(
+			SELECT
+				COLUMNKEYID,
+				VIDEOID,
+				ROW_NUMBER()OVER(PARTITION BY COLUMNKEYID ORDER BY INPUTEDTIME DESC) AS RECOMMENDNUM--同一视频集内优先推荐序号
+			FROM KB_VIDEOINFO		--视频信息表
+			WHERE DELETEDFLAG = 0	--未删除的
+			AND COLUMNKEYID IS NOT NULL
+		)SA
+		WHERE SA.RECOMMENDNUM &lt;5000
+		;
+		END;
+	</sql>
+
+	<sql name="SQL_REFRESH_KB_TAG_VIDEO_NUM">
+		DECLARE
+		BEGIN
+		DELETE KB_TAG_VIDEO_NUM;			--全部删除
+		INSERT INTO KB_TAG_VIDEO_NUM	--统计用知识点与视频关系表
+		(
+			TAG_ID,				--知识点ID
+			VIDEO_ID,			--视频ID
+			RECOMMENDNUM,		--同一知识点内优先推荐序号
+			updatedtime
+		)
+		SELECT
+			SA.TAG_ID,
+			SA.VIDEO_ID,
+			SA.RECOMMENDNUM,
+			SYSDATE
+		FROM
+		(
+			SELECT
+				KTV.TAG_ID,
+				KTV.VIDEO_ID,
+				ROW_NUMBER()OVER(PARTITION BY KTV.TAG_ID ORDER BY KVI.INPUTEDTIME DESC) AS RECOMMENDNUM--同一知识点内优先推荐序号
+			FROM KB_TAG_VIDEO KTV		--知识点与视频关系表
+			INNER JOIN KB_VIDEOINFO KVI	--视频信息表
+				ON KVI.VIDEOID = KTV.VIDEO_ID
+			WHERE KTV.STATUS = '0'
+		)SA
+		WHERE SA.RECOMMENDNUM &lt;1000
+		;
+		END;
+	</sql>
+
+
+	<sql name="SQL_REFRESH_KB_TAG_VIDEO">
+		--删除掉知识点与视频匹配表中，词频明细表中已不存在的关键字-视频ID关联的所有记录
+		--但知识点与视频匹配表中被"禁用"的或“手工匹配”记录不能被删除，
+		DECLARE
+		BEGIN
+		DELETE KB_TAG_VIDEO T
+		WHERE NOT EXISTS
+		(
+			SELECT
+				B.TAG_ID,					--知识点ID
+				C.VIDEO_ID					--视频ID
+			FROM KB_VIDEO_KEYWORD_DETAIL C			--词频明细表
+			INNER JOIN KB_TAG B						--知识点表
+				ON C.KEYWORD = B.TAG_NAME			--知识点名称=关键字名称
+			WHERE B.TAG_ID = T.TAG_ID
+			AND C.VIDEO_ID = T.VIDEO_ID
+		)
+		AND T.MATCHING_MODE = '0'          	--仅删除自动匹配的
+		AND T.STATUS = '0'					--仅删除正常的
+		;
+		END;
+	</sql>
+
+	<sql name="SQL_REFRESH_KB_KEYWORDS_TOTAL">
+		--生成词频统计表
+		DECLARE
+		BEGIN
+		MERGE INTO KB_KEYWORDS_TOTAL T		--生成词频统计表
+		USING
+		(
+
+			SELECT
+				KD.KEYWORD,					--关键字
+				COUNT(1) AS CNT,			--出现视频个数
+				SYSDATE AS INPUTED_TIME,	--录入时间
+				'SYSTEM' AS INPUTED_USER,	--录入人
+				SYSDATE AS UPDATED_TIME,	--更新时间
+				'SYSTEM' AS UPDATED_USER	--更新人
+			FROM KB_VIDEO_KEYWORD_DETAIL KD	--视频关键字明细表
+			GROUP BY KD.KEYWORD				--关键字
+		) S ON(
+			T.KEYWORD = S.KEYWORD
+		)
+			WHEN MATCHED THEN				--当匹配时修改
+				UPDATE SET
+					T.AMOUNT 	= S.CNT,
+					T.UPDATED_TIME = S.UPDATED_TIME
+			
+			WHEN NOT MATCHED THEN  					--当不匹配时Insert
+				INSERT  
+			    (
+					KEYWORD,
+					AMOUNT,
+					INPUTED_TIME,
+					INPUTED_USER,
+					UPDATED_TIME,
+					UPDATED_USER
+
+			    )VALUES(
+					S.KEYWORD,					--关键字
+					S.CNT,			--出现视频个数
+					S.INPUTED_TIME,	--录入时间
+					S.INPUTED_USER,	--录入人
+					S.UPDATED_TIME,	--更新时间
+					S.UPDATED_USER	--更新人
+			    )
+			    ;
+		END;	
+	</sql>
+
+	<sql name="SQL_REFRESH_KB_VIDEOSETCONTAINS">
+		--生成统计用视频与视频集关系表
+		DECLARE
+		BEGIN
+		DELETE KB_VIDEOSETCONTAINS;			--全部删除
+		INSERT INTO KB_VIDEOSETCONTAINS	--统计用视频与视频集关系表
+		(
+			VIDEOSETID,			--视频集ID
+			VIDEOID,			--视频ID
+			WITHDRAWALOFFLAG，	--撤出标志
+			RECOMMENDNUM,		--同一视频集内优先推荐序号
+			updatedtime
+		)
+		SELECT
+			SA.VIDEOSETID,
+			SA.VIDEOID,
+			SA.WITHDRAWALOFFLAG,
+			SA.RECOMMENDNUM,
+			SYSDATE
+		FROM
+		(
+			SELECT
+				VIDEOSETID,		--视频集ID
+				VIDEOID,		--视频ID
+				WITHDRAWALOFFLAG，	--撤出标志
+				ROW_NUMBER()OVER(PARTITION BY VIDEOSETID ORDER BY UPDATEDTIME DESC) AS RECOMMENDNUM--同一视频集内优先推荐序号
+			FROM VMS_VIDEOSETCONTAINS		--视频与视频集关系表
+			WHERE DELETEDFLAG = 0			--未删除的
+		)SA
+		WHERE SA.RECOMMENDNUM &lt;5000
+		;
+		END;
+	</sql>
+
+	<sql name="SQL_REFRESH_KB_CLASS_VIDEO">
+		--生成统计用视频分类表
+		DECLARE
+		BEGIN
+		DELETE KB_CLASS_VIDEO;	--全部删除
+		INSERT INTO KB_CLASS_VIDEO 	--统计用视频分类表
+		(
+			CLASSCODE，		--分类ID
+			VIDEOID,		--视频ID
+			RECOMMENDNUM,	--同一分类内优先推荐序号
+			updatedtime		--更新时间
+		)
+		SELECT
+			SA.CLASSCODE,
+			SA.VIDEOID,
+			SA.RECOMMENDNUM,
+			SYSDATE
+		FROM
+		(
+			SELECT
+				A.CLASSCODE，		--分类ID
+				A.VIDEOID,		--视频ID
+				ROW_NUMBER()OVER(PARTITION BY A.CLASSCODE ORDER BY VVI.INPUTEDTIME DESC) AS RECOMMENDNUM--同一分类内优先推荐序号
+			FROM VMS_CLASS_VIDEO A		--视频分类表
+			INNER JOIN KB_VIDEOINFO VVI
+				ON A.VIDEOID = VVI.VIDEOID
+		)SA
+		WHERE SA.RECOMMENDNUM &lt; 5000
+		;
+		END;
+	</sql>
+
+
+	<sql name="SQL_MERGE_INTO_KB_TAG_VIDEO">
+
+		DECLARE
+		BEGIN
+			--从词频明细表中，关键字=知识点名称的记录按“知识点ID-视频ID对”Merge到知识点与视频匹配表
+			--但知识点与视频匹配表中被"禁用"的或“手工匹配”记录不能被Merge
+			INSERT INTO KB_TAG_VIDEO
+			(
+					TAG_ID,					--知识点ID
+					VIDEO_ID,				--视频ID
+					MATCHING_MODE,			--匹配方式
+					STATUS,					--状态
+					UPDATED_TIME,			--更新时间
+					UPDATED_USER			--更新人
+				
+			)
+				SELECT
+					A.TAG_ID,						--知识点ID
+					B.VIDEO_ID,						--视频ID
+					'0' AS MATCHING_MODE,			--匹配方式：自动
+				   	'0' AS STATUS,					--状态：正常
+				   	SYSDATE AS UPDATED_TIME,		--更新时间
+				    'SYSTEM' AS UPDATED_USER		--更新人
+				FROM KB_TAG A						--知识点表
+				INNER JOIN KB_VIDEO_KEYWORD_DETAIL B	--词频明细表
+					ON A.TAG_NAME = B.KEYWORD			--知识点名称 = 关键字
+        		WHERE NOT EXISTS
+        		(
+              		SELECT 1
+              		FROM KB_TAG_VIDEO KTV
+              		WHERE KTV.TAG_ID = A.TAG_ID
+              		AND KTV.VIDEO_ID = B.VIDEO_ID
+        
+        		)
+        		AND A.TAG_STATUS = '0'				--仅取状态为正常的知识点
+        		AND ROWNUM &lt; 10000
+			;			
+		--生成知识点件关联权重
+		--删除掉源知识点在知识库中已经不存在或已经被禁用
+		DELETE KB_TAG_RELATION_WEIGHT T
+		WHERE NOT EXISTS
+		(
+			SELECT 1
+			FROM KB_TAG	KT	--知识点库
+			WHERE KT.TAG_ID = T.TAG_ID
+			AND KT.TAG_STATUS = '0'			--正常的
+		)
+		;
+		--删除掉关联知识点在知识库中已经不存在或已经被禁用
+		DELETE KB_TAG_RELATION_WEIGHT T
+		WHERE NOT EXISTS
+		(
+			SELECT 1
+			FROM KB_TAG	KT	--知识点库
+			WHERE KT.TAG_ID = T.RE_TAG_ID
+			AND KT.TAG_STATUS = '0'			--正常的
+		)
+		;
+		
+		--生成最新的知识点间关联值Merge到KB_TAG_RELATION_WEIGHT
+		MERGE INTO KB_TAG_RELATION_WEIGHT T USING
+		(
+		SELECT
+		    AA.TAG_ID,
+		    AA.RE_TAG_ID,
+		    AA.TAG_WEIGHT
+		 FROM
+		 ( 
+			WITH RS AS			--所有存在的源知识点-同义知识点对
+			(
+			    SELECT DISTINCT
+			    	SUBSTR(TR2.TAG_ID,1,CASE WHEN INSTR(TR2.TAG_ID,',')=0 
+		          THEN LENGTH(TR2.TAG_ID) ELSE INSTR(TR2.TAG_ID,',')-1 END ) 
+		          AS TAG_ID,   --源知识点ID   （截取树路径中第1个节点的ID）
+		          TR2.RE_TAG_ID    --同义知识点ID
+		      FROM
+		      (      
+		        SELECT 
+		          LTRIM(SYS_CONNECT_BY_PATH(TR1.TAG_ID,','),',') AS TAG_ID,  --源知识点ID
+		          TR1.TAG_ID AS RE_TAG_ID                   --同义知识点ID
+		        FROM 
+		        (
+		          SELECT TAG_ID,RELATION_ID,RE_TAG_ID
+		           FROM KB_TAG_RELATION
+		            WHERE RELATION_ID = 'R_SAME'
+		            AND STATUS = '0'          --状态=正常
+		        )TR1                        --取得所有同义关系的记录
+		      CONNECT BY NOCYCLE TR1.RE_TAG_ID = PRIOR TR1.TAG_ID  --递归取得所有同义
+		      )TR2
+		  ),SRC_TAG AS        --本次要处理的源知识点
+		  (
+		       SELECT
+		         DISTINCT
+		         KT.TAG_ID AS TAG_ID    --知识点ID(源知识点=自己)    
+		      FROM KB_TAG KT
+		      WHERE KT.TAG_STATUS = '0'   --状态为正常的
+		   )
+		  SELECT
+		    TAG_ID,
+		    RE_TAG_ID,
+		    SUM(TAG_WEIGHT) AS TAG_WEIGHT
+		  FROM
+		  (
+		    --得到知识点本身的关联权重=1
+		    SELECT 
+		      TAG_ID AS TAG_ID,    --知识点ID(源知识点=自己)
+		      TAG_ID AS RE_TAG_ID,  --知识点ID（关联知识点=自己）
+		      (
+		        SELECT TO_NUMBER(VALUE)
+		        FROM KB_VIDEO_RECOMMEND_CONFIG
+		        WHERE ITEM_CODE = 'ZD_RELATION_WEIGHT'
+		        AND KEY = 'SAME_TAG'
+		      )  AS TAG_WEIGHT          --知识点自己和自己的关联权重设为1
+		    FROM SRC_TAG
+
+		    UNION ALL
+		    
+		    --取得知识点的同义知识点，以及这些同义知识点的所有关联（非同义）知识点
+		    SELECT
+		      TAG_ID,        --源知识点ID
+		      RE_TAG_ID,      --同义或关联知识点
+		      TAG_WEIGHT      --取得关联权重
+		    FROM
+		    (
+		      --取得源知识点的所有同义知识点
+		      SELECT
+		        RS.TAG_ID,        --源知识点ID
+		        RS.RE_TAG_ID,      --同义知识点
+		        (
+		          SELECT TO_NUMBER(VALUE)
+		          FROM KB_VIDEO_RECOMMEND_CONFIG
+		          WHERE ITEM_CODE = 'ZD_RELATION_WEIGHT'
+		          AND KEY = 'SAME_RELATION'
+		        ) TAG_WEIGHT        --取得同义的关联权重
+		      FROM SRC_TAG
+		      INNER JOIN RS 
+		        ON RS.TAG_ID = SRC_TAG.TAG_ID
+		        AND RS.TAG_ID &lt;&gt;RS.RE_TAG_ID --不包括源知识点本身
+		    
+		      UNION ALL
+		      
+		      SELECT
+		        DISTINCT
+		        RSA.TAG_ID,      --源知识点
+		        TR.RE_TAG_ID,    --源知识点及其同义知识点所有的关联知识点
+		        (
+		          SELECT TO_NUMBER(VALUE)
+		          FROM KB_VIDEO_RECOMMEND_CONFIG
+		          WHERE ITEM_CODE = 'ZD_RELATION_WEIGHT'
+		          AND KEY = 'OTHER_RELATION'
+		        )TAG_WEIGHT        --取得同义之外的关联权重
+		      FROM
+		      (
+		        --源知识点-同义知识点对（不包括源知识点-源知识点对）
+		        SELECT
+		          RS.TAG_ID,        --源知识点ID
+		          RS.RE_TAG_ID      --同义知识点
+		        FROM SRC_TAG
+		        INNER JOIN RS 
+		          ON RS.TAG_ID = SRC_TAG.TAG_ID
+		          AND RS.TAG_ID &lt;&gt;RS.RE_TAG_ID --不包括源知识点本身
+		        
+		        UNION ALL
+		        --源知识点-源知识点对
+		        SELECT
+		          T1.TAG_ID,          --源知识点
+		          T1.TAG_ID AS RE_TAG_ID    --源知识点本身
+		        FROM SRC_TAG T1
+
+		      )RSA      --源知识点的所有同义知识点列表（包括源知识点本身）
+		      INNER JOIN 
+		      (
+		        --取得所有知识点的关联知识点
+		        SELECT 
+		          TAG_ID,        --知识点
+		          RELATION_ID,    --关联ID
+		          RE_TAG_ID      --关联知识点（排除同义）
+		        FROM KB_TAG_RELATION 
+		        WHERE STATUS = '0'    --状态=正常
+		        AND  RELATION_ID &lt;&gt; 'R_SAME'    --同义之外的关联
+
+		        UNION ALL
+		        --取得所有知识点的兄弟知识点
+		        SELECT 
+		          TRP.TAG_ID,        --知识点
+		          'BORTHER' AS RELATION_ID,  --兄弟关系
+		          TRC.RE_TAG_ID      --兄弟知识点
+		        FROM KB_TAG_RELATION TRP
+		        INNER JOIN   KB_TAG_RELATION TRC
+		          ON TRP.RE_TAG_ID = TRC.TAG_ID    --父知识点
+		          AND TRC.RELATION_ID = 'R_HAVE'
+		          AND TRC.STATUS = '0'
+		        WHERE TRP.STATUS = '0'    --状态=正常
+		        AND  TRP.RELATION_ID = 'R_BELONG'    --源视频所在知识点属于的知识点
+		          AND TRP.TAG_ID &lt;&gt;TRC.RE_TAG_ID      --排除本身
+		      )TR ON RSA.RE_TAG_ID = TR.TAG_ID      --同义知识点（包括源知识点本身）作为源知识点
+
+		    )RR
+		    
+		  )TAG_R  --知识点间的关联权重
+		  GROUP BY
+		    TAG_ID,
+		    RE_TAG_ID
+		 )AA
+		)S ON(
+			T.TAG_ID = S.TAG_ID AND
+			T.RE_TAG_ID = S.RE_TAG_ID
+		)
+		WHEN MATCHED THEN  						--当匹配时更新权重
+			UPDATE SET TAG_WEIGHT = S.TAG_WEIGHT
+		WHEN NOT MATCHED THEN  					--当不匹配时Insert
+			INSERT  
+		    (
+	 			TAG_ID,
+				RE_TAG_ID,
+				TAG_WEIGHT
+		    )VALUES(
+	 			S.TAG_ID,
+				S.RE_TAG_ID,
+				S.TAG_WEIGHT
+		    )
+		 ;
+		END;
+	</sql>
+
+
+	<!-- 更新视频关键字明细表 -->
+	<sql name="SQL_MERGE_INTO_KB_VIDEO_KEYWORD_DETAIL">
+		DECLARE
+
+		BEGIN
+		DELETE TEMP_TBL_KB_VIDEO_KEYWORD;
+		INSERT INTO TEMP_TBL_KB_VIDEO_KEYWORD		--对象视频临时表（注意这个临时表是事务级的，COMMIT/ROLLBACK后数据就消失了）
+		(
+			VIDEOID,			--视频ID
+		  	KEYWORDS,      --视频关键字列表
+			ORIGIALVIDEOID,      --视频GUID
+		  	INPUTEDTIME        --视频录入时间
+		)	
+		SELECT
+			KVI.VIDEOID,			--视频ID
+		  	KVI.KEYWORDS,      --视频关键字列表
+			KVI.ORIGIALVIDEOID,      --视频GUID
+		  	KVI.INPUTEDTIME        --视频录入时间
+		FROM KB_VIDEOINFO KVI
+		WHERE 1=1
+		AND ceil((CAST(KVI.keywords_time AS DATE) - CAST(KVI.updatedtime AS DATE))*1440) &lt;=0
+		AND KVI.DELETEDFLAG = 0       --未删除的
+		AND KVI.ORGID =	'SEVI100003683714'
+		AND ROWNUM &lt; 1000
+		;
+
+		--生成视频关键字明细表
+		MERGE INTO KB_VIDEO_KEYWORD_DETAIL T		--视频关键字明细表
+		USING
+		(
+		SELECT
+			AA.VIDEO_ID,							--视频ID
+			SUBSTR(AA.KEYWORD,1,100) AS KEYWORD,		--关键字名称
+			AA.CNT,					--该关键字在该视频中出现次数
+			AA.VIDEO_INPUTED_TIME,	--视频录入时间
+			AA.UPDATED_TIME,		
+			AA.UPDATED_USER
+		FROM
+		(
+			WITH KEY_VKD AS
+			(
+				--取得视频信息表中的全部关键字
+				SELECT 
+					VIDEOID  ,									--视频ID
+					REPLACE(TRIM(KEYWORDS),' ',',') AS KEYWORDS	--关键字列表
+				FROM TEMP_TBL_KB_VIDEO_KEYWORD VVI_A			--对象视频
+				WHERE  KEYWORDS IS NOT NULL		--关键字列表为非空的
+			),
+			 PEOPLE_VKD AS
+			(
+				--取得视频任务表中的全部关键字
+				SELECT 
+					VS.VIDEOID  ,										--视频ID
+					REPLACE(TRIM(VS.POPLE_NAME),' ',',') AS KEYWORDS	--关键字列表
+				FROM TEMP_TBL_KB_VIDEO_KEYWORD VVI_A 				--对象视频
+				INNER JOIN VMS_VIDEOSTAR VS							--视频相关人物表
+					ON VVI_A.VIDEOID = VS.VIDEOID
+				WHERE  VS.POPLE_NAME IS NOT NULL						--人物名称为非空的
+				AND VS.DELETEDFLAG = 0 								--未删除的
+			),
+			HOT_VKD AS
+			(
+					SELECT
+						VVI_A.VIDEOID,								--视频ID
+						REPLACE(LTRIM(RTRIM(VH.HOTWORDS)),' ',',') AS KEYWORDS		--热词（关键字）
+			      FROM TEMP_TBL_KB_VIDEO_KEYWORD VVI_A   --对象视频
+			      INNER JOIN VMS_VIDEO_HOTWORDS VH    --热词一览表
+			        ON VH.GUID = VVI_A.ORIGIALVIDEOID   --视频GUID
+			)
+			SELECT
+				B.VIDEO_ID,				--视频ID
+				B.KEYWORD,				--关键字名称
+				B.CNT,					--该关键字在该视频中出现次数
+				VVI.INPUTEDTIME AS VIDEO_INPUTED_TIME,	--视频录入时间
+				SYSDATE AS UPDATED_TIME,		
+				'SYSTEM' AS UPDATED_USER
+			FROM
+			(
+
+				
+				SELECT
+					A.VIDEO_ID,				--视频ID
+					A.KEYWORD,				--关键字名称
+					COUNT(1) AS CNT			--该关键字在该视频中出现次数
+				FROM
+				(
+
+					--从视频信息表的关键字列表中分拆出视频ID-关键字对
+					SELECT 
+						VIDEOID AS VIDEO_ID,		--视频ID
+						KEYWORD AS KEYWORD			--关键字名称
+					FROM
+					(
+						SELECT
+							VIDEOID,
+							SUBSTR(T.KEYWORDS_LOOP,INSTR(T.KEYWORDS_LOOP,',',1,C.LV)+1,INSTR(T.KEYWORDS_LOOP,',',1,C.LV+1) - (instr(T.KEYWORDS_LOOP, ',', 1, C.LV) + 1)) AS KEYWORD
+						FROM
+						(
+							SELECT
+								VIDEOID,
+								','||KEYWORDS||',' AS KEYWORDS_LOOP,
+								LENGTH(KEYWORDS||',') - NVL(LENGTH(REPLACE(KEYWORDS, ',')), 0) AS CNT
+							FROM KEY_VKD
+						)T,
+						(
+							SELECT LEVEL LV FROM DUAL CONNECT BY LEVEL&lt;=100
+						)C
+						WHERE C.LV &lt;= T.CNT
+					)
+					WHERE KEYWORD IS NOT NULL
+					
+					UNION ALL
+					
+					--从视频相关人物表的人物名称列表中分拆出视频ID-关键字（人物名称）对
+					SELECT 
+						VIDEOID AS VIDEO_ID,		--视频ID
+						KEYWORD AS KEYWORD			--关键字（人物姓名）名称
+					FROM
+					(
+						SELECT
+							VIDEOID,
+							SUBSTR(T.KEYWORDS_LOOP,INSTR(T.KEYWORDS_LOOP,',',1,C.LV)+1,INSTR(T.KEYWORDS_LOOP,',',1,C.LV+1) - (instr(T.KEYWORDS_LOOP, ',', 1, C.LV) + 1)) AS KEYWORD
+						FROM
+						(
+							SELECT
+								VIDEOID,
+								','||KEYWORDS||',' AS KEYWORDS_LOOP,
+								LENGTH(KEYWORDS||',') - NVL(LENGTH(REPLACE(KEYWORDS, ',')), 0) AS CNT
+							FROM PEOPLE_VKD
+						)T,
+						(
+							SELECT LEVEL LV FROM DUAL CONNECT BY LEVEL&lt;=100
+						)C
+						WHERE C.LV &lt;= T.CNT
+					)
+					WHERE KEYWORD IS NOT NULL
+					
+					UNION ALL
+					
+					--从视频相关人物表的名人ID中抽出视频ID-关键字（名人名称）对
+					SELECT 
+						A.VIDEOID AS VIDEO_ID,							--视频ID
+						TRIM(B.STARNAME) AS KEYWORD						--关键字(名人姓名)名称
+					FROM TEMP_TBL_KB_VIDEO_KEYWORD VVI_A			--对象视频
+					INNER JOIN VMS_VIDEOSTAR A 								--视频相关人物表
+						ON VVI_A.VIDEOID = A.VIDEOID					--视频ID
+					INNER JOIN VMS_STARS B 								--名人信息表
+						ON A.STARID = B.STARID
+					WHERE  B.STARNAME IS NOT NULL						--人物名称为非空的
+					AND A.POPLE_NAME IS NULL							--人物名称为空的，代表该人物是名人
+					AND A.DELETEDFLAG = 0 								--未删除的
+					
+					UNION ALL
+					
+					--从视频核心标签库中抽出视频ID-关键字对
+					SELECT
+						VT.VIDEOID AS VIDEO_ID,					--视频ID
+						T.TAGNAME AS KEYWORD				--标签名称
+					FROM TEMP_TBL_KB_VIDEO_KEYWORD VVI_A 	--对象视频
+					INNER JOIN	VMS_VIDEOTAG VT			--307-视频核心标签表
+						ON VVI_A.VIDEOID = VT.VIDEOID		--视频ID
+					INNER JOIN VMS_TAG T			--标签管理表
+						ON VT.CORETAGID = T.TAGID 	--标签ID
+						AND T.DELETEDFLAG =0		--非删除的
+					WHERE T.TAGNAME IS NOT NULL
+
+					UNION ALL
+					
+					--从热词一览表中抽出视频ID-关键字对
+					--从视频信息表的关键字列表中分拆出视频ID-关键字对
+					SELECT 
+						VIDEOID AS VIDEO_ID,		--视频ID
+						KEYWORD AS KEYWORD			--关键字名称
+					FROM
+					(
+						SELECT
+							VIDEOID,
+							SUBSTR(T.KEYWORDS_LOOP,INSTR(T.KEYWORDS_LOOP,',',1,C.LV)+1,INSTR(T.KEYWORDS_LOOP,',',1,C.LV+1) - (instr(T.KEYWORDS_LOOP, ',', 1, C.LV) + 1)) AS KEYWORD
+						FROM
+						(
+							SELECT
+								VIDEOID,
+								','||KEYWORDS||',' AS KEYWORDS_LOOP,
+								LENGTH(KEYWORDS||',') - NVL(LENGTH(REPLACE(KEYWORDS, ',')), 0) AS CNT
+							FROM HOT_VKD
+						)T,
+						(
+							SELECT LEVEL LV FROM DUAL CONNECT BY LEVEL&lt;=20
+						)C
+						WHERE C.LV &lt;= T.CNT
+					)
+					WHERE KEYWORD IS NOT NULL			
+					
+				)A
+				GROUP BY
+					A.VIDEO_ID,				--视频ID
+					A.KEYWORD				--关键字名称
+			)B 
+			INNER JOIN TEMP_TBL_KB_VIDEO_KEYWORD VVI	--连接视频信息表，得到视频录入时间
+				ON B.VIDEO_ID = VVI.VIDEOID		--视频ID
+		)AA
+		) S ON(
+			T.VIDEO_ID = S.VIDEO_ID AND
+			T.KEYWORD = S.KEYWORD
+		)
+			--WHEN MATCHED THEN  						--当匹配时什么也不做
+					
+			WHEN NOT MATCHED THEN  					--当不匹配时Insert
+				INSERT  
+			    (
+		 			VIDEO_ID,
+					KEYWORD,
+					CNT,
+					VIDEO_INPUTED_TIME,
+					UPDATED_TIME,
+					UPDATED_USER
+
+			    )VALUES(
+			    	S.VIDEO_ID,
+			    	S.KEYWORD,
+			    	S.CNT,
+					S.VIDEO_INPUTED_TIME,
+					S.UPDATED_TIME,
+					S.UPDATED_USER
+			    )
+			    ;
+
+		MERGE INTO KB_VIDEOINFO T
+		USING
+		(
+			SELECT VIDEOID
+			FROM TEMP_TBL_KB_VIDEO_KEYWORD
+		)S ON (S.VIDEOID = T.VIDEOID)
+		WHEN MATCHED THEN
+			UPDATE SET
+			KEYWORDS_TIME = SYSDATE
+		;
+		END;
+	</sql>
+
+	<!-- 更新统计用视频信息表 -->
+	<sql name="SQL_MERGE_INTO_KB_VIDEOINFO">
+		--统计和知识库用数据库表数据更新（增量随时）
+		Declare
+
+		BEGIN
+
+		MERGE INTO KB_VIDEOINFO T	--统计用视频信息表
+		USING
+		(
+		SELECT
+			AA.videoid          ,
+		  	AA.origialvideoid   ,
+		  	AA.videoname        ,
+		  	AA.durationnum      ,
+		  	AA.orgid            ,
+		  	AA.channelid        ,
+		  	AA.columnkeyid ,
+		  	AA.editmode         ,
+		  	AA.producer         ,
+		  	AA.cataloguser      ,
+		  	AA.parentid         ,
+		  	AA.videoidsource    ,
+		  	AA.producesystem    ,
+		  	AA.inputedtime      ,
+		  	AA.updatedtime      ,
+		  	AA.deletedflag      ,
+		  	AA.KEYWORDS,
+		  	AA.CLASSCODE		,
+		  	AA.VIDEOSETID		,
+		  	AA.ONSHELF
+		FROM
+		(
+
+			WITH VVI_A AS
+			(
+
+				SELECT
+					VVI.videoid          ,
+				  	VVI.origialvideoid   ,
+				  	VVI.videoname        ,
+				  	VVI.durationnum      ,
+				  	VVI.orgid            ,
+				  	VVI.channelid        ,
+				  	NVL(VVI.columnkeyid,VVI.COLUMNID) AS columnkeyid ,
+				  	VVI.editmode         ,
+				  	VVI.producer         ,
+				  	VVI.cataloguser      ,
+				  	VVI.parentid         ,
+				  	VVI.videoidsource    ,
+				  	VVI.producesystem    ,
+				  	VVI.inputedtime      ,
+				  	VVI.updatedtime      ,
+				  	VVI.KEYWORDS,
+				  	VVI.deletedflag      
+				FROM VMS_VIDEOINFO VVI			--视频信息表
+				WHERE VVI.UPDATEDTIME BETWEEN TO_DATE(TO_CHAR(SYSDATE-7,'YYYYMMDD'),'YYYYMMDD') AND TO_DATE(TO_CHAR(SYSDATE+1,'YYYYMMDD'),'YYYYMMDD') --仅取当天有更新视频
+				AND NOT EXISTS			--排除已经Merge到统计用视频信息表而且之后无更新的视频
+				(
+					SELECT 1 
+					FROM KB_VIDEOINFO KVI
+					WHERE KVI.VIDEOID = VVI.VIDEOID
+					AND KVI.SYNC_TIME &gt; VVI.UPDATEDTIME
+				)
+				AND VVI.origialvideoid IS NOT NULL
+				AND ROWNUM&lt;1000
+				
+				UNION
+				
+				SELECT
+					VVI.videoid          ,
+				  	VVI.origialvideoid   ,
+				  	VVI.videoname        ,
+				  	VVI.durationnum      ,
+				  	VVI.orgid            ,
+				  	VVI.channelid        ,
+				  	NVL(VVI.columnkeyid,VVI.COLUMNID) AS columnkeyid ,
+				  	VVI.editmode         ,
+				  	VVI.producer         ,
+				  	VVI.cataloguser      ,
+				  	VVI.parentid         ,
+				  	VVI.videoidsource    ,
+				  	VVI.producesystem    ,
+				  	VVI.inputedtime      ,
+				  	VVI.updatedtime      ,
+				  	VVI.KEYWORDS,
+				  	VVI.deletedflag      
+				FROM VMS_VIDEOINFO VVI			--视频信息表
+				WHERE VVI.VIDEOID IN			--视频的视频集信息有更新的情况
+						(
+							SELECT DISTINCT VIDEOID
+							FROM VMS_VIDEOSETCONTAINS VVC
+							WHERE UPDATEDTIME BETWEEN TO_DATE(TO_CHAR(SYSDATE-2,'YYYYMMDD'),'YYYYMMDD') AND TO_DATE(TO_CHAR(SYSDATE+1,'YYYYMMDD'),'YYYYMMDD')
+							AND NOT EXISTS			--排除已经Merge到统计用视频信息表而且之后无更新的视频
+							(
+								SELECT 1 
+								FROM KB_VIDEOINFO KVI
+								WHERE KVI.VIDEOID = VVC.VIDEOID
+								AND KVI.SYNC_TIME &gt; VVC.UPDATEDTIME
+							)
+						)
+				AND VVI.origialvideoid IS NOT NULL				
+				AND ROWNUM&lt;1000	
+			)
+			SELECT
+				VVI_A.videoid          ,
+			  	VVI_A.origialvideoid   ,
+			  	VVI_A.videoname        ,
+			  	VVI_A.durationnum      ,
+			  	VVI_A.orgid            ,
+			  	VVI_A.channelid        ,
+			  	VVI_A.columnkeyid ,
+			  	VVI_A.editmode         ,
+			  	VVI_A.producer         ,
+			  	VVI_A.cataloguser      ,
+			  	VVI_A.parentid         ,
+			  	VVI_A.videoidsource    ,
+			  	VVI_A.producesystem    ,
+			  	VVI_A.inputedtime      ,
+			  	VVI_A.updatedtime      ,
+			  	VVI_A.deletedflag      ,
+			  	VVI_A.KEYWORDS,
+			  	VCV.CLASSCODE		,
+			  	VVC.VIDEOSETID		,
+			  	NVL(VC.ONSHELF,1) AS  ONSHELF
+			FROM VVI_A 
+			LEFT JOIN 
+			(
+				SELECT 
+					VVI_A.VIDEOID,
+					VCV1.CLASSCODE,
+					ROW_NUMBER()OVER(PARTITION BY VCV1.VIDEOID ORDER BY NULL ) AS CNT
+				FROM VVI_A
+				INNER JOIN VMS_CLASS_VIDEO VCV1
+					ON VVI_A.VIDEOID = VCV1.VIDEOID
+			)VCV   --视频与分类关系表中1个视频只取一个关系
+				ON VCV.VIDEOID = VVI_A.VIDEOID
+				AND VCV.CNT = 1
+			LEFT JOIN
+			(
+				SELECT
+					VVI_A.VIDEOID,				--视频ID
+					VVC1.VIDEOSETID,				--视频集ID
+					ROW_NUMBER()OVER(PARTITION BY VVC1.VIDEOID ORDER BY VVC1.UPDATEDTIME DESC) AS CNT
+				FROM VVI_A
+				INNER JOIN VMS_VIDEOSETCONTAINS VVC1		--视频与视频集关系表
+					ON VVC1.VIDEOID = VVI_A.VIDEOID
+					AND VVC1.DELETEDFLAG = 0			--未删除的
+			) VVC	--确保视频仅属于1个视频集
+				ON VVC.VIDEOID = VVI_A.VIDEOID
+				AND VVC.CNT = 1
+			LEFT JOIN VMS_COPYRIGHT	VC	--视频版权信息表（取得上下架标志）
+				ON VC.VIDEOID = VVI_A.VIDEOID
+				AND VC.DELETEDFLAG = 0
+		)AA
+		)S ON (S.VIDEOID = T.VIDEOID)
+		WHEN MATCHED THEN  						--当匹配时Update
+			UPDATE SET
+			  	T.origialvideoid   =S.origialvideoid  ,
+			  	T.videoname        =S.videoname       ,
+			  	T.durationnum      =S.durationnum     ,
+			  	T.orgid            =S.orgid           ,
+			  	T.channelid        =S.channelid       ,
+			  	T.columnkeyid      =S.columnkeyid     ,
+			  	T.editmode         =S.editmode        ,
+			  	T.producer         =S.producer        ,
+			  	T.cataloguser      =S.cataloguser     ,
+			  	T.parentid         =S.parentid        ,
+			  	T.videoidsource    =S.videoidsource   ,
+			  	T.producesystem    =S.producesystem   ,
+			  	T.inputedtime      =S.inputedtime     ,
+			  	T.updatedtime      =S.updatedtime     ,
+			  	T.deletedflag      =S.deletedflag     ,
+			  	T.KEYWORDS			= S.KEYWORDS	  ,
+			  	T.KEYWORDS_TIME		= S.updatedtime	  ,
+			  	T.CLASSCODE		 = S.CLASSCODE		  ,
+		  		T.VIDEOSETID	 = S.VIDEOSETID		  ,
+		  		T.ONSHELF 		 = S.ONSHELF		  ,
+		  		T.SYNC_TIME		   =SYSDATE		 
+		WHEN NOT MATCHED THEN  					--当不匹配时Insert
+			INSERT(
+				videoid          ,
+			  	origialvideoid   ,
+			  	videoname        ,
+			  	durationnum      ,
+			  	orgid            ,
+			  	channelid        ,
+			  	columnkeyid      ,
+			  	editmode         ,
+			  	producer         ,
+			  	cataloguser      ,
+			  	parentid         ,
+			  	videoidsource    ,
+			  	producesystem    ,
+			  	inputedtime      ,
+			  	updatedtime      ,
+			  	deletedflag      ,
+			  	KEYWORDS		,
+			  	KEYWORDS_TIME	,
+			  	CLASSCODE		,
+		  		VIDEOSETID		,
+		  		ONSHELF 		,
+		  		SYNC_TIME		 
+
+			)VALUES(
+				S.videoid          ,
+			  	S.origialvideoid   ,
+			  	S.videoname        ,
+			  	S.durationnum      ,
+			  	S.orgid            ,
+			  	S.channelid        ,
+			  	S.columnkeyid      ,
+			  	S.editmode         ,
+			  	S.producer         ,
+			  	S.cataloguser      ,
+			  	S.parentid         ,
+			  	S.videoidsource    ,
+			  	S.producesystem    ,
+			  	S.inputedtime      ,
+			  	S.updatedtime      ,
+			  	S.deletedflag      ,
+			  	S.KEYWORDS		,
+			  	S.updatedtime	,
+			  	S.CLASSCODE		,
+		  		S.VIDEOSETID	,
+		  		S.ONSHELF 	,
+		  		SYSDATE
+			)
+			;
+		END;
+	</sql>
+    <sql name="SQL_SYN_BATCH_RUNNING" >
+    	SELECT t.syn_id from KB_BATCH_RUNNING_SYN t WHERE t.SYN_ID BETWEEN ? AND ? FOR UPDATE NOWAIT
+    </sql>
+
+	<sql name="SQL_VIDEO_RECOMMEND">
+WITH TEMP_VIDEOINFO_RECOMMEND AS
+(
+	SELECT
+	  VVIP.VIDEOID,            	-- 视频ID 
+	  VVIP.ORIGIALVIDEOID,   	-- 视频GUID 
+	  VVIP.COLUMNKEYID,      	-- 栏目关键字ID 
+	  VVIP.PARENTID,        	-- 粗切视频GUID 
+	  VVIP.INPUTEDTIME,      	-- 视频录入时间       
+	  VVIP.VIDEOSETID,    		-- 视频集ID 
+	  VVIP.CLASSCODE,      		-- 分类ID 
+	  VVIP.ORGID            	-- 机构ID 
+	FROM
+	(
+		SELECT
+		    VVI.VIDEOID,          	-- 视频ID 
+		    VVI.ORIGIALVIDEOID, 	-- 视频GUID 
+		    VVI.COLUMNKEYID,    	-- 栏目关键字ID 
+		    VVI.PARENTID,      		-- 粗切视频GUID 
+		    VVI.INPUTEDTIME,    	-- 视频录入时间       
+			VVI.VIDEOSETID,			-- 视频集ID 
+		    VVI.CLASSCODE,			-- 分类ID 
+		    VVI.ORGID        		-- 机构ID 
+		from KB_VIDEOINFO VVI 
+    	LEFT JOIN KB_VIDEO_RECOMMEND VR
+      		ON VR.VIDEO_ID = VVI.VIDEOID
+		WHERE VVI.DELETEDFLAG = 0       -- 未删除的 
+		AND VVI.ORGID = (
+		        SELECT VALUE
+		        FROM KB_VIDEO_RECOMMEND_CONFIG
+		        WHERE ITEM_CODE = 'ZD_RECOMEND_ORG'
+		        AND KEY = 'ORG_CNTV'
+		      )    -- 仅处理CNTV的视频 
+		AND (VR.UPDATED_TIME IS NULL OR VR.UPDATED_TIME &lt; SYSDATE - NUMTODSINTERVAL(?,'MINUTE')) 			--推荐间隔（分钟）
+		AND VVI.INPUTEDTIME BETWEEN TO_DATE(?,'YYYYMMDD') AND TO_DATE(?,'YYYYMMDD')	   	-- 年月日范围 
+	)VVIP
+	WHERE ROWNUM&lt;?					--处理件数
+)
+SELECT
+	A.VIDEOID AS VIDEO_ID,            	-- 视频ID 
+	A.ORIGIALVIDEOID AS GUID,          	-- 视频GUID 
+	A1.CLASS_RE_CNT,         			-- 同分类推荐件数 
+	A1.CLASS_JSON_DESC, 				-- 同分类推荐的DESC列表
+	A1.CLASS_JSON_OTHER, 				-- 同分类推荐的OTHER列表
+	A1.CLASS_JSON_WEIGHT,   			-- 同分类推荐视频关联度列表 
+	A1.SOURCE_RE_CNT,         			-- 粗精切推荐件数 
+	A1.SOURCE_JSON_DESC, 				-- 粗精切推荐的DESC列表
+	A1.SOURCE_JSON_OTHER, 				-- 粗精切推荐的OTHER列表
+	A1.SOURCE_JSON_WEIGHT,  			-- 粗精切推荐视频关联度列表 
+	A1.TAG_RE_CNT,         				-- 知识推荐件数 
+	A1.TAG_JSON_DESC, 					-- 知识推荐的DESC列表
+	A1.TAG_JSON_OTHER, 					-- 知识推荐的OTHER列表
+	A1.TAG_JSON_WEIGHT   				-- 知识推荐视频关联度列表 
+FROM TEMP_VIDEOINFO_RECOMMEND A
+LEFT JOIN        -- 取得该视频的推荐视频 
+(
+
+	SELECT
+		TG.VIDEO_ID AS VIDEO_ID,            	-- 视频ID 
+		NVL(SUM(DECODE(TG.RECOMMEND_FLAG,1,TG.RE_CNT,NULL)),0) AS CLASS_RE_CNT,         			-- 同分类推荐件数 
+		MAX(DECODE(TG.RECOMMEND_FLAG,1,TG.JSON_DESC,NULL)) AS CLASS_JSON_DESC, 						-- 同分类推荐的DESC列表
+		MAX(DECODE(TG.RECOMMEND_FLAG,1,TG.JSON_OTHER,NULL)) AS CLASS_JSON_OTHER, 					-- 同分类推荐的OTHER列表
+		'[' || MAX(DECODE(TG.RECOMMEND_FLAG,1,TG.JSON_WEIGHT,NULL)) || ']' AS CLASS_JSON_WEIGHT,   	-- 同分类推荐视频关联度列表 
+		NVL(SUM(DECODE(TG.RECOMMEND_FLAG,2,TG.RE_CNT,NULL)),0) AS SOURCE_RE_CNT,         			-- 粗精切推荐件数 
+		MAX(DECODE(TG.RECOMMEND_FLAG,2,TG.JSON_DESC,NULL)) AS SOURCE_JSON_DESC, 					-- 粗精切推荐的DESC列表
+		MAX(DECODE(TG.RECOMMEND_FLAG,2,TG.JSON_OTHER,NULL)) AS SOURCE_JSON_OTHER, 					-- 粗精切推荐的OTHER列表
+		'[' || MAX(DECODE(TG.RECOMMEND_FLAG,2,TG.JSON_WEIGHT,NULL)) || ']' AS SOURCE_JSON_WEIGHT,  	-- 粗精切推荐视频关联度列表 
+		NVL(SUM(DECODE(TG.RECOMMEND_FLAG,3,TG.RE_CNT,NULL)),0) AS TAG_RE_CNT,         			-- 知识推荐件数 
+		MAX(DECODE(TG.RECOMMEND_FLAG,3,TG.JSON_DESC,NULL)) AS TAG_JSON_DESC, 						-- 知识推荐的DESC列表
+		MAX(DECODE(TG.RECOMMEND_FLAG,3,TG.JSON_OTHER,NULL)) AS TAG_JSON_OTHER, 						-- 知识推荐的OTHER列表
+		'[' || MAX(DECODE(TG.RECOMMEND_FLAG,3,TG.JSON_WEIGHT,NULL)) || ']' AS TAG_JSON_WEIGHT   	-- 知识推荐视频关联度列表 
+
+	FROM
+	(
+		SELECT
+			T.VIDEO_ID,      		-- 视频ID
+			T.RECOMMEND_FLAG,		--推荐类型:1:同分类推荐/2:粗精切推荐/3:知识推荐
+			COUNT(1) AS RE_CNT,  	-- 推荐件数 
+			-- 生成JSON字符串 
+			LISTAGG('"desc":"'||REPLACE(SUBSTR(CASE WHEN VVI.EDITMODE = 'CM02' THEN 
+			      CASE WHEN LENGTH(SUBSTR(VVI.VIDEONAME,INSTR(VVI.VIDEONAME,']')+1))&gt;8 AND TRANSLATE(SUBSTR(SUBSTR(VVI.VIDEONAME,INSTR(VVI.VIDEONAME,']')+1),-8,8),'0123456789','0000000000')='00000000' THEN
+			        TRIM(SUBSTR(SUBSTR(VVI.VIDEONAME,INSTR(VVI.VIDEONAME,']')+1),1,LENGTH(SUBSTR(VVI.VIDEONAME,INSTR(VVI.VIDEONAME,']')+1))-8)) 
+			          ELSE TRIM(SUBSTR(VVI.VIDEONAME,INSTR(VVI.VIDEONAME,']')+1)) END ELSE VVI.VIDEONAME END,1,100),'"','\"')||'"'
+			  ,'') within GROUP (order by rownum) AS JSON_DESC,
+			LISTAGG('"url":"'||DECODE(VVI.VIDEOSETID,NULL,'http://tv.cntv.cn/video/'||VVI.ORIGIALVIDEOID,'http://tv.cntv.cn/video/'||VVI.VIDEOSETID||'/'||VVI.ORIGIALVIDEOID)||'"'||
+			  ',"icon":"'||VVF.ISSUEDURL||'"'||
+			  ',"duration":"'||VVI.DURATIONNUM||'"'||
+			  ',"column":"'|| NVL(CI.COLUMNNAME,VVI.COLUMNKEYID) ||'"'||
+			  ',"time":"'||TO_CHAR(VVI.INPUTEDTIME,'YYYY-MM-DD HH24:MI:SS')||'"'
+			  ,'') within GROUP (order by rownum) AS JSON_OTHER,
+			-- 生成关联度列表 
+			LISTAGG('{"GUID":"'||VVI.ORIGIALVIDEOID||'"'||
+			  ',"WEIGHT":"'||T.RWEIGHT||'"}'
+			  ,',') within GROUP (order by rownum) AS JSON_WEIGHT
+		FROM
+		(
+			SELECT
+				B.VIDEO_ID,         		-- 视频ID 
+				B.RE_VIDEO_ID,  			-- 关联视频ID
+				1 as RECOMMEND_FLAG,		--推荐类型=同分类推荐
+				B.CLASS_WEIGHT AS RWEIGHT    -- 关联强度
+			FROM
+			(
+				-- 基于同结构的视频推荐 
+				SELECT
+					VRV.VIDEO_ID,      -- 视频ID 
+					VRV.RE_VIDEO_ID,    -- 关联视频ID 
+					ROW_NUMBER()OVER(PARTITION BY VRV.VIDEO_ID ORDER BY SUM(VRV.CLASS_WEIGHT) DESC) AS CNT,  -- 关联度排序 
+					SUM(CLASS_WEIGHT) AS CLASS_WEIGHT      -- 关联强度 
+				FROM
+				(
+					-- 取得同视频集的视频 
+					SELECT
+						VVI_A.VIDEOID AS VIDEO_ID,    -- 视频ID 
+						R_VSC.VIDEOID AS RE_VIDEO_ID,  -- 关联视频ID 
+						(
+						SELECT TO_NUMBER(VALUE)
+						FROM KB_VIDEO_RECOMMEND_CONFIG
+						WHERE ITEM_CODE = 'ZD_RELATION_WEIGHT'
+						AND KEY = 'SAME_VIDEO_SET'
+						) AS CLASS_WEIGHT        -- 同视频集关联强度为1 
+					FROM KB_VIDEOSETCONTAINS R_VSC
+					INNER JOIN TEMP_VIDEOINFO_RECOMMEND VVI_A 
+						ON R_VSC.VIDEOSETID = VVI_A.VIDEOSETID
+						AND R_VSC.RECOMMENDNUM&lt;200      -- 同视频集最多取100条视频  同视频集最多取1000条视频 
+					WHERE VVI_A.VIDEOSETID IS NOT NULL
+
+					UNION ALL
+					-- 取得同分类下的视频 
+					SELECT
+						VVI_A.VIDEOID AS VIDEO_ID,    -- 视频ID 
+						R_VCV.VIDEOID AS RE_VIDEO_ID,  -- 关联视频ID 
+						(
+						SELECT TO_NUMBER(VALUE)
+						FROM KB_VIDEO_RECOMMEND_CONFIG
+						WHERE ITEM_CODE = 'ZD_RELATION_WEIGHT'
+						AND KEY = 'SAME_CLASS'
+						)  AS CLASS_WEIGHT        -- 同分类的视频的关联强度为1 
+					FROM KB_CLASS_VIDEO R_VCV       -- 视频与分类关系表 
+					INNER JOIN TEMP_VIDEOINFO_RECOMMEND VVI_A   -- 视频与分类关系表 
+						ON R_VCV.CLASSCODE = VVI_A.CLASSCODE       -- 得到该分类下所有视频 
+						AND R_VCV.RECOMMENDNUM  &lt; 200    -- 同分类最多取1000条视频 
+					WHERE VVI_A.CLASSCODE IS NOT NULL        
+					UNION ALL
+					-- 取得同栏目关键字的视频  
+
+					SELECT
+						VVI.VIDEOID AS VIDEO_ID,      -- 视频ID 
+						R_VVI.VIDEOID AS RE_VIDEO_ID,    -- 关联视频ID 
+						(
+						SELECT TO_NUMBER(VALUE)
+						FROM KB_VIDEO_RECOMMEND_CONFIG
+						WHERE ITEM_CODE = 'ZD_RELATION_WEIGHT'
+						AND KEY = 'SAME_COLUMN_KEY_ID'
+						)  AS CLASS_WEIGHT          -- 同栏目关键字的视频的关联强度为1 
+					FROM KB_VIDEOCOLUMN R_VVI 
+					INNER JOIN TEMP_VIDEOINFO_RECOMMEND VVI
+						ON   R_VVI.COLUMNKEYID = VVI.COLUMNKEYID      -- 栏目关键字ID 
+						AND R_VVI.RECOMMENDNUM &lt;200        -- 同栏目仅取100条（性能控制） 
+					WHERE VVI.COLUMNKEYID IS NOT NULL  
+
+				)VRV
+				INNER JOIN KB_VIDEOINFO KVI    -- 统计用视频信息表 
+				ON KVI.VIDEOID = VRV.RE_VIDEO_ID
+					AND KVI.ONSHELF = 1      -- 仅取得上架的 
+					AND KVI.ORGID = (
+					SELECT VALUE
+					FROM KB_VIDEO_RECOMMEND_CONFIG
+					WHERE ITEM_CODE = 'ZD_RECOMEND_ORG'
+					AND KEY = 'ORG_CNTV'
+					)    -- 仅取得CNTV的视频 
+					AND KVI.DELETEDFLAG = 0      -- 未删除的视频 
+				WHERE 1=1
+				AND VRV.VIDEO_ID &lt;&gt; VRV.RE_VIDEO_ID
+				AND VRV.VIDEO_ID||VRV.RE_VIDEO_ID NOT IN          -- 排除被禁止的推荐视频 
+					(
+					SELECT 
+					RF.VIDEO_ID||RF.FORBID_VIDEO_ID
+					FROM KB_VIDEO_RECOMMEND_FORBID RF    -- KB310_视频推荐禁用明细表  
+					)
+				GROUP BY
+					VRV.VIDEO_ID,    -- 视频ID 
+					VRV.RE_VIDEO_ID    -- 关联视频ID 
+			)B
+			WHERE B.CNT&lt;= (          -- 最大推荐件数 
+				SELECT VALUE
+				FROM KB_VIDEO_RECOMMEND_CONFIG
+				WHERE ITEM_CODE = 'ZD_RECOMMEND_COUNT'
+				AND KEY = 'CLASS_RELEATION'
+				)      
+			
+			UNION ALL
+			-- 基于粗精切关联的视频推荐
+			SELECT
+				C.VIDEO_ID,      			-- 视频ID 
+				C.RE_VIDEO_ID,    			-- 关联视频ID
+				2 as RECOMMEND_FLAG,		--推荐类型=粗精切推荐
+				C.SOURCE_WEIGHT AS RWEIGHT  -- 关联强度
+			FROM
+			(
+				SELECT
+				VRV.VIDEO_ID,      -- 视频ID 
+				VRV.RE_VIDEO_ID,    -- 关联视频ID 
+				ROW_NUMBER()OVER(PARTITION BY VRV.VIDEO_ID ORDER BY SUM(VRV.SOURCE_WEIGHT) DESC) AS CNT,  -- 关联度排序 
+				SUM(VRV.SOURCE_WEIGHT) AS SOURCE_WEIGHT    -- 关联强度 
+				FROM
+				(
+					-- 找到父视频 
+					SELECT
+						VVI.VIDEOID AS VIDEO_ID,      -- 视频ID 
+						P_VVI.VIDEOID AS RE_VIDEO_ID,    -- 父视频ID 
+						(
+							SELECT TO_NUMBER(VALUE)
+							FROM KB_VIDEO_RECOMMEND_CONFIG
+							WHERE ITEM_CODE = 'ZD_RELATION_WEIGHT'
+							AND KEY = 'SAME_SOURCE'
+						)  AS SOURCE_WEIGHT          -- 父视频的关联强度为1 
+					FROM  KB_VIDEOINFO P_VVI 
+					INNER JOIN TEMP_VIDEOINFO_RECOMMEND VVI          -- 找到父视频 
+						ON P_VVI.ORIGIALVIDEOID = VVI.PARENTID
+					WHERE P_VVI.ONSHELF = 1      -- 仅取得上架的 
+					AND P_VVI.ORGID = (
+						SELECT VALUE
+						FROM KB_VIDEO_RECOMMEND_CONFIG
+						WHERE ITEM_CODE = 'ZD_RECOMEND_ORG'
+						AND KEY = 'ORG_CNTV'
+					)    -- 仅取得CNTV的视频 
+					AND P_VVI.DELETEDFLAG = 0      -- 未删除的视频 WHERE 1=1       
+
+					UNION ALL
+					-- 找到儿子视频 
+					SELECT
+						VVI.VIDEOID AS VIDEO_ID,      -- 视频ID 
+						C_VVI.VIDEOID AS RE_VIDEO_ID,    -- 儿子视频ID 
+						(
+							SELECT TO_NUMBER(VALUE)
+							FROM KB_VIDEO_RECOMMEND_CONFIG
+							WHERE ITEM_CODE = 'ZD_RELATION_WEIGHT'
+							AND KEY = 'SAME_SOURCE'
+						)  AS CLASS_WEIGHT          -- 儿子视频的关联强度为1 
+					FROM KB_VIDEOINFO C_VVI 
+					INNER JOIN TEMP_VIDEOINFO_RECOMMEND VVI          -- 找到儿子视频 
+						ON C_VVI.PARENTID = VVI.ORIGIALVIDEOID 
+					WHERE C_VVI.ONSHELF = 1      -- 仅取得上架的 
+					AND C_VVI.ORGID = (
+						SELECT VALUE
+						FROM KB_VIDEO_RECOMMEND_CONFIG
+						WHERE ITEM_CODE = 'ZD_RECOMEND_ORG'
+						AND KEY = 'ORG_CNTV'
+					)    -- 仅取得CNTV的视频 
+					AND C_VVI.DELETEDFLAG = 0      -- 未删除的视频      WHERE 1=1  
+
+					UNION ALL
+					-- 找到兄弟视频 
+					SELECT
+						VVI.VIDEOID AS VIDEO_ID,      -- 视频ID 
+						C_VVI.VIDEOID AS RE_VIDEO_ID,    -- 兄弟视频ID 
+						(
+						SELECT TO_NUMBER(VALUE)
+						  FROM KB_VIDEO_RECOMMEND_CONFIG
+						  WHERE ITEM_CODE = 'ZD_RELATION_WEIGHT'
+						  AND KEY = 'SAME_SOURCE'
+						)  AS CLASS_WEIGHT          -- 兄弟视频的关联强度为1 
+					FROM KB_VIDEOINFO C_VVI
+					INNER JOIN  TEMP_VIDEOINFO_RECOMMEND VVI          -- 兄弟视频 
+						ON C_VVI.PARENTID = VVI.PARENTID 
+					WHERE C_VVI.ONSHELF = 1      -- 仅取得上架的 
+					AND C_VVI.ORGID = (
+						SELECT VALUE
+						FROM KB_VIDEO_RECOMMEND_CONFIG
+						WHERE ITEM_CODE = 'ZD_RECOMEND_ORG'
+						AND KEY = 'ORG_CNTV'
+					)    -- 仅取得CNTV的视频 
+					AND C_VVI.DELETEDFLAG = 0      -- 未删除的视频      WHERE 1=1  
+				)VRV
+				WHERE 1=1
+				AND VRV.VIDEO_ID &lt;&gt; VRV.RE_VIDEO_ID      -- 排除自己 
+				AND VRV.VIDEO_ID||VRV.RE_VIDEO_ID NOT IN          -- 排除被禁止的推荐视频 
+				(
+					SELECT 
+					RF.VIDEO_ID||RF.FORBID_VIDEO_ID
+					FROM KB_VIDEO_RECOMMEND_FORBID RF    -- KB310_视频推荐禁用明细表  
+				)
+
+				GROUP BY
+				VRV.VIDEO_ID,    -- 视频ID 
+				VRV.RE_VIDEO_ID    -- 关联视频ID 
+			)C
+			WHERE C.CNT&lt;= (          -- 最大推荐件数 
+				SELECT VALUE
+				FROM KB_VIDEO_RECOMMEND_CONFIG
+				WHERE ITEM_CODE = 'ZD_RECOMMEND_COUNT'
+				AND KEY = 'SOURCE_RELEATION'
+				)
+			
+			UNION ALL
+
+			-- 基于知识的关联推荐 
+			SELECT
+				D.VIDEO_ID,      	-- 视频ID  
+				D.RE_VIDEO_ID,  	-- 关联视频ID 
+				3 as RECOMMEND_FLAG,		--推荐类型=粗精切推荐
+				D.TAG_WEIGHT AS RWEIGHT -- 关联权重
+			FROM
+			(
+				SELECT
+					VRV.VIDEO_ID,            -- 源视频ID 
+					VRV.RE_VIDEO_ID,          -- 关联视频ID 
+					ROW_NUMBER()OVER(PARTITION BY VRV.VIDEO_ID ORDER BY SUM(VRV.TAG_WEIGHT) DESC ) AS CNT,  -- 关联度大的排序 
+					SUM(VRV.TAG_WEIGHT) AS  TAG_WEIGHT  -- 关联权重 
+				FROM
+				(
+					SELECT
+						VVI_A.VIDEOID AS VIDEO_ID,
+						KTV.VIDEO_ID AS RE_VIDEO_ID,
+						TAG_R.TAG_ID,                 -- 视频所属知识点ID 
+						TAG_R.RE_TAG_ID,              -- 视频所属知识点的关联知识点ID 
+						TAG_R.TAG_WEIGHT              -- 知识点与关联知识点间的关联权重 
+					FROM KB_TAG_RELATION_WEIGHT TAG_R    -- 源知识点-关联知识点对 
+					INNER JOIN KB_TAG_VIDEO TV          -- 知识点与视频关系表 
+						ON TV.TAG_ID = TAG_R.TAG_ID
+						AND TV.STATUS = '0'        -- 状态=正常 
+					INNER JOIN KB_TAG_VIDEO_NUM KTV        -- 知识点与视频匹配表 
+						ON KTV.TAG_ID = TAG_R.RE_TAG_ID    -- 关联知识点 
+						AND KTV.RECOMMENDNUM &lt; 100
+					INNER JOIN KB_VIDEOINFO KVI      -- 视频信息表 
+						ON KVI.VIDEOID = KTV.VIDEO_ID    -- 视频ID 
+						AND KVI.DELETEDFLAG = 0 
+						AND KVI.ONSHELF = 1      -- 仅取得上架的 
+						AND KVI.ORGID = (
+						          SELECT VALUE
+						          FROM KB_VIDEO_RECOMMEND_CONFIG
+						          WHERE ITEM_CODE = 'ZD_RECOMEND_ORG'
+						          AND KEY = 'ORG_CNTV'
+						      )    -- 仅取CNTV的视频进行推荐 
+					INNER JOIN TEMP_VIDEOINFO_RECOMMEND VVI_A    -- 源视频对象 
+						ON VVI_A.VIDEOID = TV.VIDEO_ID
+				)VRV    -- 视频与视频关联权重 
+				WHERE VRV.VIDEO_ID &lt;&gt; VRV.RE_VIDEO_ID    -- 排除自己 
+				AND VRV.VIDEO_ID||VRV.RE_VIDEO_ID NOT IN          -- 排除被禁止的推荐视频 
+				(
+					SELECT 
+					RF.VIDEO_ID||RF.FORBID_VIDEO_ID
+					FROM KB_VIDEO_RECOMMEND_FORBID RF    -- KB310_视频推荐禁用明细表  
+				)
+				GROUP BY
+					VRV.VIDEO_ID,
+					VRV.RE_VIDEO_ID
+			)D
+			WHERE D.CNT&lt;= (          -- 最大推荐件数 
+				SELECT VALUE
+				FROM KB_VIDEO_RECOMMEND_CONFIG
+				WHERE ITEM_CODE = 'ZD_RECOMMEND_COUNT'
+				AND KEY = 'TAG_RELEATION'
+			)      -- 每个视频的关联推荐最多20个视频 
+		)T
+		INNER JOIN KB_VIDEOINFO VVI        -- 取得推荐视频的标题,GUID,时长和录入时间 
+			ON VVI.VIDEOID = T.RE_VIDEO_ID
+		LEFT JOIN  VMS_COLUMNINFO CI        -- 栏目信息表       取得栏目名称 
+			ON CI.COLUMNID  = VVI.COLUMNKEYID    -- 栏目ID或栏目关键字ID 
+		LEFT JOIN VMS_VIDEOFRAME VVF        -- 取得视频的第二张缩略图的发布地址 
+			ON VVF.VIDEOID = T.RE_VIDEO_ID
+			AND VVF.FRAMENUMBER = 1        -- 0起第二张 
+		GROUP BY		--按视频ID和推荐类型聚合
+			T.VIDEO_ID,
+			T.RECOMMEND_FLAG
+	)TG
+	GROUP BY TG.VIDEO_ID
+
+)A1 ON A.VIDEOID = A1.VIDEO_ID
+
+
+	</sql>
+
+    <sql name="SQL_MERGE_INTO_KB_VIDEO_RECOMMEND" >
+		MERGE INTO KB_VIDEO_RECOMMEND T
+		  USING
+		  (  
+		    SELECT
+		      ? AS VIDEO_ID,         		 <!-- 视频ID -->
+		      ? AS GUID,            		 <!-- 视频GUID -->
+		      ? AS CLASS_JSON,    		 <!-- 同分类推荐视频JSON -->
+		      ? AS CLASS_JSON_WEIGHT,      <!-- 同分类推荐视频关联度列表 -->
+		      ? AS SOURCE_JSON,   		 <!-- 粗精切推荐视频JSON -->
+		      ? AS SOURCE_JSON_WEIGHT,     <!-- 粗精切推荐视频关联度列表 -->
+		      ? AS TAG_JSON,      		 <!-- 基于知识的推荐视频JSON -->
+		      ? AS TAG_JSON_WEIGHT         <!-- 基于知识的推荐视频关联度列表 -->
+		    FROM DUAL
+		  )S 
+		  ON (T.VIDEO_ID = S.VIDEO_ID)      <!-- Merge主键为视频ID -->
+		  
+		  WHEN MATCHED THEN              <!-- 当匹配时Update -->
+		  UPDATE  SET
+		    T.CLASS_LIST = S.CLASS_JSON,
+		    T.SOURCE_LIST =S.SOURCE_JSON,
+		    T.TAG_LIST   = S.TAG_JSON,
+    		T.CLASS_WEIGHT_LIST = S.CLASS_JSON_WEIGHT,
+   			T.SOURCE_WEIGHT_LIST = S.SOURCE_JSON_WEIGHT,
+    		T.TAG_WEIGHT_LIST = S.TAG_JSON_WEIGHT,
+		    T.UPDATED_TIME = SYSDATE,
+		    T.UPDATED_USER = 'SYSTEM'
+		  WHEN NOT MATCHED THEN            <!-- 当不匹配时Insert -->
+		  INSERT  
+		    (
+		      VIDEO_ID,
+		      GUID,
+		      CLASS_LIST,
+		      SOURCE_LIST,
+		      TAG_LIST,
+		      CLASS_WEIGHT_LIST,
+		      SOURCE_WEIGHT_LIST,
+		      TAG_WEIGHT_LIST,
+		      UPDATED_TIME,
+		      UPDATED_USER
+		    )VALUES(
+		     S.VIDEO_ID,
+		     S.GUID,
+		     S.CLASS_JSON,
+		     S.SOURCE_JSON,
+		     S.TAG_JSON,
+     		 S.CLASS_JSON_WEIGHT,
+     		 S.SOURCE_JSON_WEIGHT,
+     		 S.TAG_JSON_WEIGHT,
+		    SYSDATE,
+		    'SYSTEM'
+		    )
+
+    </sql>
+
+    <sql name="SQL_REPLACE_INTO_MYSQL">
+    	replace into sup_recommend values(?,?,?,?,now())
+    </sql>
+    
+	<sql name="SQL_SINGLE_VIDEO_RECOMMEND">
+WITH TEMP_VIDEOINFO_RECOMMEND AS
+(
+	SELECT
+	  VVIP.VIDEOID,            	-- 视频ID 
+	  VVIP.ORIGIALVIDEOID,   	-- 视频GUID 
+	  VVIP.COLUMNKEYID,      	-- 栏目关键字ID 
+	  VVIP.PARENTID,        	-- 粗切视频GUID 
+	  VVIP.INPUTEDTIME,      	-- 视频录入时间       
+	  VVIP.VIDEOSETID,    		-- 视频集ID 
+	  VVIP.CLASSCODE,      		-- 分类ID 
+	  VVIP.ORGID            	-- 机构ID 
+	FROM
+	(
+		SELECT
+		    VVI.VIDEOID,          	-- 视频ID 
+		    VVI.ORIGIALVIDEOID, 	-- 视频GUID 
+		    VVI.COLUMNKEYID,    	-- 栏目关键字ID 
+		    VVI.PARENTID,      		-- 粗切视频GUID 
+		    VVI.INPUTEDTIME,    	-- 视频录入时间       
+			VVI.VIDEOSETID,			-- 视频集ID 
+		    VVI.CLASSCODE,			-- 分类ID 
+		    VVI.ORGID        		-- 机构ID 
+		from KB_VIDEOINFO VVI 
+		WHERE VVI.ORIGIALVIDEOID = ?       -- GUID
+	)VVIP
+)
+SELECT
+	A.VIDEOID AS VIDEO_ID,            	-- 视频ID 
+	A.ORIGIALVIDEOID AS GUID,          	-- 视频GUID 
+	A1.CLASS_RE_CNT,         			-- 同分类推荐件数 
+	A1.CLASS_JSON_DESC, 				-- 同分类推荐的DESC列表
+	A1.CLASS_JSON_OTHER, 				-- 同分类推荐的OTHER列表
+	A1.CLASS_JSON_WEIGHT,   			-- 同分类推荐视频关联度列表 
+	A1.SOURCE_RE_CNT,         			-- 粗精切推荐件数 
+	A1.SOURCE_JSON_DESC, 				-- 粗精切推荐的DESC列表
+	A1.SOURCE_JSON_OTHER, 				-- 粗精切推荐的OTHER列表
+	A1.SOURCE_JSON_WEIGHT,  			-- 粗精切推荐视频关联度列表 
+	A1.TAG_RE_CNT,         				-- 知识推荐件数 
+	A1.TAG_JSON_DESC, 					-- 知识推荐的DESC列表
+	A1.TAG_JSON_OTHER, 					-- 知识推荐的OTHER列表
+	A1.TAG_JSON_WEIGHT   				-- 知识推荐视频关联度列表 
+FROM TEMP_VIDEOINFO_RECOMMEND A
+LEFT JOIN        -- 取得该视频的推荐视频 
+(
+
+	SELECT
+		TG.VIDEO_ID AS VIDEO_ID,            	-- 视频ID 
+		NVL(SUM(DECODE(TG.RECOMMEND_FLAG,1,TG.RE_CNT,NULL)),0) AS CLASS_RE_CNT,         			-- 同分类推荐件数 
+		MAX(DECODE(TG.RECOMMEND_FLAG,1,TG.JSON_DESC,NULL)) AS CLASS_JSON_DESC, 						-- 同分类推荐的DESC列表
+		MAX(DECODE(TG.RECOMMEND_FLAG,1,TG.JSON_OTHER,NULL)) AS CLASS_JSON_OTHER, 					-- 同分类推荐的OTHER列表
+		'[' || MAX(DECODE(TG.RECOMMEND_FLAG,1,TG.JSON_WEIGHT,NULL)) || ']' AS CLASS_JSON_WEIGHT,   	-- 同分类推荐视频关联度列表 
+		NVL(SUM(DECODE(TG.RECOMMEND_FLAG,2,TG.RE_CNT,NULL)),0) AS SOURCE_RE_CNT,         			-- 粗精切推荐件数 
+		MAX(DECODE(TG.RECOMMEND_FLAG,2,TG.JSON_DESC,NULL)) AS SOURCE_JSON_DESC, 					-- 粗精切推荐的DESC列表
+		MAX(DECODE(TG.RECOMMEND_FLAG,2,TG.JSON_OTHER,NULL)) AS SOURCE_JSON_OTHER, 					-- 粗精切推荐的OTHER列表
+		'[' || MAX(DECODE(TG.RECOMMEND_FLAG,2,TG.JSON_WEIGHT,NULL)) || ']' AS SOURCE_JSON_WEIGHT,  	-- 粗精切推荐视频关联度列表 
+		NVL(SUM(DECODE(TG.RECOMMEND_FLAG,3,TG.RE_CNT,NULL)),0) AS TAG_RE_CNT,         			-- 知识推荐件数 
+		MAX(DECODE(TG.RECOMMEND_FLAG,3,TG.JSON_DESC,NULL)) AS TAG_JSON_DESC, 						-- 知识推荐的DESC列表
+		MAX(DECODE(TG.RECOMMEND_FLAG,3,TG.JSON_OTHER,NULL)) AS TAG_JSON_OTHER, 						-- 知识推荐的OTHER列表
+		'[' || MAX(DECODE(TG.RECOMMEND_FLAG,3,TG.JSON_WEIGHT,NULL)) || ']' AS TAG_JSON_WEIGHT   	-- 知识推荐视频关联度列表 
+
+	FROM
+	(
+		SELECT
+			T.VIDEO_ID,      		-- 视频ID
+			T.RECOMMEND_FLAG,		--推荐类型:1:同分类推荐/2:粗精切推荐/3:知识推荐
+			COUNT(1) AS RE_CNT,  	-- 推荐件数 
+			-- 生成JSON字符串 
+			LISTAGG('"desc":"'||REPLACE(SUBSTR(CASE WHEN VVI.EDITMODE = 'CM02' THEN 
+			      CASE WHEN LENGTH(SUBSTR(VVI.VIDEONAME,INSTR(VVI.VIDEONAME,']')+1))&gt;8 AND TRANSLATE(SUBSTR(SUBSTR(VVI.VIDEONAME,INSTR(VVI.VIDEONAME,']')+1),-8,8),'0123456789','0000000000')='00000000' THEN
+			        TRIM(SUBSTR(SUBSTR(VVI.VIDEONAME,INSTR(VVI.VIDEONAME,']')+1),1,LENGTH(SUBSTR(VVI.VIDEONAME,INSTR(VVI.VIDEONAME,']')+1))-8)) 
+			          ELSE TRIM(SUBSTR(VVI.VIDEONAME,INSTR(VVI.VIDEONAME,']')+1)) END ELSE VVI.VIDEONAME END,1,100),'"','\"')||'"'
+			  ,'') within GROUP (order by rownum) AS JSON_DESC,
+			LISTAGG('"url":"'||DECODE(VVI.VIDEOSETID,NULL,'http://tv.cntv.cn/video/'||VVI.ORIGIALVIDEOID,'http://tv.cntv.cn/video/'||VVI.VIDEOSETID||'/'||VVI.ORIGIALVIDEOID)||'"'||
+			  ',"icon":"'||VVF.ISSUEDURL||'"'||
+			  ',"duration":"'||VVI.DURATIONNUM||'"'||
+			  ',"column":"'|| NVL(CI.COLUMNNAME,VVI.COLUMNKEYID) ||'"'||
+			  ',"time":"'||TO_CHAR(VVI.INPUTEDTIME,'YYYY-MM-DD HH24:MI:SS')||'"'
+			  ,'') within GROUP (order by rownum) AS JSON_OTHER,
+			-- 生成关联度列表 
+			LISTAGG('{"GUID":"'||VVI.ORIGIALVIDEOID||'"'||
+			  ',"WEIGHT":"'||T.RWEIGHT||'"}'
+			  ,',') within GROUP (order by rownum) AS JSON_WEIGHT
+		FROM
+		(
+			SELECT
+				B.VIDEO_ID,         		-- 视频ID 
+				B.RE_VIDEO_ID,  			-- 关联视频ID
+				1 as RECOMMEND_FLAG,		--推荐类型=同分类推荐
+				B.CLASS_WEIGHT AS RWEIGHT    -- 关联强度
+			FROM
+			(
+				-- 基于同结构的视频推荐 
+				SELECT
+					VRV.VIDEO_ID,      -- 视频ID 
+					VRV.RE_VIDEO_ID,    -- 关联视频ID 
+					ROW_NUMBER()OVER(PARTITION BY VRV.VIDEO_ID ORDER BY SUM(VRV.CLASS_WEIGHT) DESC) AS CNT,  -- 关联度排序 
+					SUM(CLASS_WEIGHT) AS CLASS_WEIGHT      -- 关联强度 
+				FROM
+				(
+					-- 取得同视频集的视频 
+					SELECT
+						VVI_A.VIDEOID AS VIDEO_ID,    -- 视频ID 
+						R_VSC.VIDEOID AS RE_VIDEO_ID,  -- 关联视频ID 
+						(
+						SELECT TO_NUMBER(VALUE)
+						FROM KB_VIDEO_RECOMMEND_CONFIG
+						WHERE ITEM_CODE = 'ZD_RELATION_WEIGHT'
+						AND KEY = 'SAME_VIDEO_SET'
+						) AS CLASS_WEIGHT        -- 同视频集关联强度为1 
+					FROM KB_VIDEOSETCONTAINS R_VSC
+					INNER JOIN TEMP_VIDEOINFO_RECOMMEND VVI_A 
+						ON R_VSC.VIDEOSETID = VVI_A.VIDEOSETID
+						AND R_VSC.RECOMMENDNUM&lt;200      -- 同视频集最多取100条视频  同视频集最多取1000条视频 
+					WHERE VVI_A.VIDEOSETID IS NOT NULL
+
+					UNION ALL
+					-- 取得同分类下的视频 
+					SELECT
+						VVI_A.VIDEOID AS VIDEO_ID,    -- 视频ID 
+						R_VCV.VIDEOID AS RE_VIDEO_ID,  -- 关联视频ID 
+						(
+						SELECT TO_NUMBER(VALUE)
+						FROM KB_VIDEO_RECOMMEND_CONFIG
+						WHERE ITEM_CODE = 'ZD_RELATION_WEIGHT'
+						AND KEY = 'SAME_CLASS'
+						)  AS CLASS_WEIGHT        -- 同分类的视频的关联强度为1 
+					FROM KB_CLASS_VIDEO R_VCV       -- 视频与分类关系表 
+					INNER JOIN TEMP_VIDEOINFO_RECOMMEND VVI_A   -- 视频与分类关系表 
+						ON R_VCV.CLASSCODE = VVI_A.CLASSCODE       -- 得到该分类下所有视频 
+						AND R_VCV.RECOMMENDNUM  &lt; 200    -- 同分类最多取1000条视频 
+					WHERE VVI_A.CLASSCODE IS NOT NULL        
+					UNION ALL
+					-- 取得同栏目关键字的视频  
+
+					SELECT
+						VVI.VIDEOID AS VIDEO_ID,      -- 视频ID 
+						R_VVI.VIDEOID AS RE_VIDEO_ID,    -- 关联视频ID 
+						(
+						SELECT TO_NUMBER(VALUE)
+						FROM KB_VIDEO_RECOMMEND_CONFIG
+						WHERE ITEM_CODE = 'ZD_RELATION_WEIGHT'
+						AND KEY = 'SAME_COLUMN_KEY_ID'
+						)  AS CLASS_WEIGHT          -- 同栏目关键字的视频的关联强度为1 
+					FROM KB_VIDEOCOLUMN R_VVI 
+					INNER JOIN TEMP_VIDEOINFO_RECOMMEND VVI
+						ON   R_VVI.COLUMNKEYID = VVI.COLUMNKEYID      -- 栏目关键字ID 
+						AND R_VVI.RECOMMENDNUM &lt;200        -- 同栏目仅取100条（性能控制） 
+					WHERE VVI.COLUMNKEYID IS NOT NULL  
+
+				)VRV
+				INNER JOIN KB_VIDEOINFO KVI    -- 统计用视频信息表 
+				ON KVI.VIDEOID = VRV.RE_VIDEO_ID
+					AND KVI.ONSHELF = 1      -- 仅取得上架的 
+					AND KVI.ORGID = (
+					SELECT VALUE
+					FROM KB_VIDEO_RECOMMEND_CONFIG
+					WHERE ITEM_CODE = 'ZD_RECOMEND_ORG'
+					AND KEY = 'ORG_CNTV'
+					)    -- 仅取得CNTV的视频 
+					AND KVI.DELETEDFLAG = 0      -- 未删除的视频 
+				WHERE 1=1
+				AND VRV.VIDEO_ID &lt;&gt; VRV.RE_VIDEO_ID
+				AND VRV.VIDEO_ID||VRV.RE_VIDEO_ID NOT IN          -- 排除被禁止的推荐视频 
+					(
+					SELECT 
+					RF.VIDEO_ID||RF.FORBID_VIDEO_ID
+					FROM KB_VIDEO_RECOMMEND_FORBID RF    -- KB310_视频推荐禁用明细表  
+					)
+				GROUP BY
+					VRV.VIDEO_ID,    -- 视频ID 
+					VRV.RE_VIDEO_ID    -- 关联视频ID 
+			)B
+			WHERE B.CNT&lt;= (          -- 最大推荐件数 
+				SELECT VALUE
+				FROM KB_VIDEO_RECOMMEND_CONFIG
+				WHERE ITEM_CODE = 'ZD_RECOMMEND_COUNT'
+				AND KEY = 'CLASS_RELEATION'
+				)      
+			
+			UNION ALL
+			-- 基于粗精切关联的视频推荐
+			SELECT
+				C.VIDEO_ID,      			-- 视频ID 
+				C.RE_VIDEO_ID,    			-- 关联视频ID
+				2 as RECOMMEND_FLAG,		--推荐类型=粗精切推荐
+				C.SOURCE_WEIGHT AS RWEIGHT  -- 关联强度
+			FROM
+			(
+				SELECT
+				VRV.VIDEO_ID,      -- 视频ID 
+				VRV.RE_VIDEO_ID,    -- 关联视频ID 
+				ROW_NUMBER()OVER(PARTITION BY VRV.VIDEO_ID ORDER BY SUM(VRV.SOURCE_WEIGHT) DESC) AS CNT,  -- 关联度排序 
+				SUM(VRV.SOURCE_WEIGHT) AS SOURCE_WEIGHT    -- 关联强度 
+				FROM
+				(
+					-- 找到父视频 
+					SELECT
+						VVI.VIDEOID AS VIDEO_ID,      -- 视频ID 
+						P_VVI.VIDEOID AS RE_VIDEO_ID,    -- 父视频ID 
+						(
+							SELECT TO_NUMBER(VALUE)
+							FROM KB_VIDEO_RECOMMEND_CONFIG
+							WHERE ITEM_CODE = 'ZD_RELATION_WEIGHT'
+							AND KEY = 'SAME_SOURCE'
+						)  AS SOURCE_WEIGHT          -- 父视频的关联强度为1 
+					FROM  KB_VIDEOINFO P_VVI 
+					INNER JOIN TEMP_VIDEOINFO_RECOMMEND VVI          -- 找到父视频 
+						ON P_VVI.ORIGIALVIDEOID = VVI.PARENTID
+					WHERE P_VVI.ONSHELF = 1      -- 仅取得上架的 
+					AND P_VVI.ORGID = (
+						SELECT VALUE
+						FROM KB_VIDEO_RECOMMEND_CONFIG
+						WHERE ITEM_CODE = 'ZD_RECOMEND_ORG'
+						AND KEY = 'ORG_CNTV'
+					)    -- 仅取得CNTV的视频 
+					AND P_VVI.DELETEDFLAG = 0      -- 未删除的视频 WHERE 1=1       
+
+					UNION ALL
+					-- 找到儿子视频 
+					SELECT
+						VVI.VIDEOID AS VIDEO_ID,      -- 视频ID 
+						C_VVI.VIDEOID AS RE_VIDEO_ID,    -- 儿子视频ID 
+						(
+							SELECT TO_NUMBER(VALUE)
+							FROM KB_VIDEO_RECOMMEND_CONFIG
+							WHERE ITEM_CODE = 'ZD_RELATION_WEIGHT'
+							AND KEY = 'SAME_SOURCE'
+						)  AS CLASS_WEIGHT          -- 儿子视频的关联强度为1 
+					FROM KB_VIDEOINFO C_VVI 
+					INNER JOIN TEMP_VIDEOINFO_RECOMMEND VVI          -- 找到儿子视频 
+						ON C_VVI.PARENTID = VVI.ORIGIALVIDEOID 
+					WHERE C_VVI.ONSHELF = 1      -- 仅取得上架的 
+					AND C_VVI.ORGID = (
+						SELECT VALUE
+						FROM KB_VIDEO_RECOMMEND_CONFIG
+						WHERE ITEM_CODE = 'ZD_RECOMEND_ORG'
+						AND KEY = 'ORG_CNTV'
+					)    -- 仅取得CNTV的视频 
+					AND C_VVI.DELETEDFLAG = 0      -- 未删除的视频      WHERE 1=1  
+
+					UNION ALL
+					-- 找到兄弟视频 
+					SELECT
+						VVI.VIDEOID AS VIDEO_ID,      -- 视频ID 
+						C_VVI.VIDEOID AS RE_VIDEO_ID,    -- 兄弟视频ID 
+						(
+						SELECT TO_NUMBER(VALUE)
+						  FROM KB_VIDEO_RECOMMEND_CONFIG
+						  WHERE ITEM_CODE = 'ZD_RELATION_WEIGHT'
+						  AND KEY = 'SAME_SOURCE'
+						)  AS CLASS_WEIGHT          -- 兄弟视频的关联强度为1 
+					FROM KB_VIDEOINFO C_VVI
+					INNER JOIN  TEMP_VIDEOINFO_RECOMMEND VVI          -- 兄弟视频 
+						ON C_VVI.PARENTID = VVI.PARENTID 
+					WHERE C_VVI.ONSHELF = 1      -- 仅取得上架的 
+					AND C_VVI.ORGID = (
+						SELECT VALUE
+						FROM KB_VIDEO_RECOMMEND_CONFIG
+						WHERE ITEM_CODE = 'ZD_RECOMEND_ORG'
+						AND KEY = 'ORG_CNTV'
+					)    -- 仅取得CNTV的视频 
+					AND C_VVI.DELETEDFLAG = 0      -- 未删除的视频      WHERE 1=1  
+				)VRV
+				WHERE 1=1
+				AND VRV.VIDEO_ID &lt;&gt; VRV.RE_VIDEO_ID      -- 排除自己 
+				AND VRV.VIDEO_ID||VRV.RE_VIDEO_ID NOT IN          -- 排除被禁止的推荐视频 
+				(
+					SELECT 
+					RF.VIDEO_ID||RF.FORBID_VIDEO_ID
+					FROM KB_VIDEO_RECOMMEND_FORBID RF    -- KB310_视频推荐禁用明细表  
+				)
+
+				GROUP BY
+				VRV.VIDEO_ID,    -- 视频ID 
+				VRV.RE_VIDEO_ID    -- 关联视频ID 
+			)C
+			WHERE C.CNT&lt;= (          -- 最大推荐件数 
+				SELECT VALUE
+				FROM KB_VIDEO_RECOMMEND_CONFIG
+				WHERE ITEM_CODE = 'ZD_RECOMMEND_COUNT'
+				AND KEY = 'SOURCE_RELEATION'
+				)
+			
+			UNION ALL
+
+			-- 基于知识的关联推荐 
+			SELECT
+				D.VIDEO_ID,      	-- 视频ID  
+				D.RE_VIDEO_ID,  	-- 关联视频ID 
+				3 as RECOMMEND_FLAG,		--推荐类型=粗精切推荐
+				D.TAG_WEIGHT AS RWEIGHT -- 关联权重
+			FROM
+			(
+				SELECT
+					VRV.VIDEO_ID,            -- 源视频ID 
+					VRV.RE_VIDEO_ID,          -- 关联视频ID 
+					ROW_NUMBER()OVER(PARTITION BY VRV.VIDEO_ID ORDER BY SUM(VRV.TAG_WEIGHT) DESC ) AS CNT,  -- 关联度大的排序 
+					SUM(VRV.TAG_WEIGHT) AS  TAG_WEIGHT  -- 关联权重 
+				FROM
+				(
+					SELECT
+						VVI_A.VIDEOID AS VIDEO_ID,
+						KTV.VIDEO_ID AS RE_VIDEO_ID,
+						TAG_R.TAG_ID,                 -- 视频所属知识点ID 
+						TAG_R.RE_TAG_ID,              -- 视频所属知识点的关联知识点ID 
+						TAG_R.TAG_WEIGHT              -- 知识点与关联知识点间的关联权重 
+					FROM KB_TAG_RELATION_WEIGHT TAG_R    -- 源知识点-关联知识点对 
+					INNER JOIN KB_TAG_VIDEO TV          -- 知识点与视频关系表 
+						ON TV.TAG_ID = TAG_R.TAG_ID
+						AND TV.STATUS = '0'        -- 状态=正常 
+					INNER JOIN KB_TAG_VIDEO_NUM KTV        -- 知识点与视频匹配表 
+						ON KTV.TAG_ID = TAG_R.RE_TAG_ID    -- 关联知识点 
+						AND KTV.RECOMMENDNUM &lt; 100
+					INNER JOIN KB_VIDEOINFO KVI      -- 视频信息表 
+						ON KVI.VIDEOID = KTV.VIDEO_ID    -- 视频ID 
+						AND KVI.DELETEDFLAG = 0 
+						AND KVI.ONSHELF = 1      -- 仅取得上架的 
+						AND KVI.ORGID = (
+						          SELECT VALUE
+						          FROM KB_VIDEO_RECOMMEND_CONFIG
+						          WHERE ITEM_CODE = 'ZD_RECOMEND_ORG'
+						          AND KEY = 'ORG_CNTV'
+						      )    -- 仅取CNTV的视频进行推荐 
+					INNER JOIN TEMP_VIDEOINFO_RECOMMEND VVI_A    -- 源视频对象 
+						ON VVI_A.VIDEOID = TV.VIDEO_ID
+				)VRV    -- 视频与视频关联权重 
+				WHERE VRV.VIDEO_ID &lt;&gt; VRV.RE_VIDEO_ID    -- 排除自己 
+				AND VRV.VIDEO_ID||VRV.RE_VIDEO_ID NOT IN          -- 排除被禁止的推荐视频 
+				(
+					SELECT 
+					RF.VIDEO_ID||RF.FORBID_VIDEO_ID
+					FROM KB_VIDEO_RECOMMEND_FORBID RF    -- KB310_视频推荐禁用明细表  
+				)
+				GROUP BY
+					VRV.VIDEO_ID,
+					VRV.RE_VIDEO_ID
+			)D
+			WHERE D.CNT&lt;= (          -- 最大推荐件数 
+				SELECT VALUE
+				FROM KB_VIDEO_RECOMMEND_CONFIG
+				WHERE ITEM_CODE = 'ZD_RECOMMEND_COUNT'
+				AND KEY = 'TAG_RELEATION'
+			)      -- 每个视频的关联推荐最多20个视频 
+		)T
+		INNER JOIN KB_VIDEOINFO VVI        -- 取得推荐视频的标题,GUID,时长和录入时间 
+			ON VVI.VIDEOID = T.RE_VIDEO_ID
+		LEFT JOIN  VMS_COLUMNINFO CI        -- 栏目信息表       取得栏目名称 
+			ON CI.COLUMNID  = VVI.COLUMNKEYID    -- 栏目ID或栏目关键字ID 
+		LEFT JOIN VMS_VIDEOFRAME VVF        -- 取得视频的第二张缩略图的发布地址 
+			ON VVF.VIDEOID = T.RE_VIDEO_ID
+			AND VVF.FRAMENUMBER = 1        -- 0起第二张 
+		GROUP BY		--按视频ID和推荐类型聚合
+			T.VIDEO_ID,
+			T.RECOMMEND_FLAG
+	)TG
+	GROUP BY TG.VIDEO_ID
+
+)A1 ON A.VIDEOID = A1.VIDEO_ID
+	</sql>    
+    
+    
+    
+    <!-- 将词库中的数据merge到知识点表 -->
+    
+   	<sql name="SQL_MERGE_INTO_FC_TAG">
+	    MERGE INTO FC_TAG TAG
+		USING (SELECT *
+		         FROM FC_THESAURUS FT
+		        WHERE 1 = 1
+		          AND NOT EXISTS (SELECT 1
+		                 FROM FC_TAG T
+		                WHERE T.TAG_NAME = FT.WORD
+		                  AND T.INPUTED_TIME &gt;= FT.UPDATED_TIME)
+		          AND ROWNUM &lt; 20000) SRC
+		ON (SRC.WORD = TAG.TAG_NAME)
+		WHEN MATCHED THEN
+		  UPDATE
+		     SET TAG.TAG_STATUS   = SRC.STATUS,
+		         TAG.INPUTED_USER = SRC.INPUTED_USER,
+		         TAG.INPUTED_TIME = SRC.UPDATED_TIME
+		WHEN NOT MATCHED THEN
+		  INSERT
+		    (
+				     TAG_ID,
+					 TAG_NAME,
+					 TAG_STATUS,
+					 INPUTED_TIME,
+					 INPUTED_USER,
+					 UPDATED_USER
+			 )
+		  VALUES
+		    (
+					 SEQ_FC_TAG_ID.NEXTVAL,
+					 SRC.WORD,
+					 SRC.STATUS,
+					 SRC.UPDATED_TIME,
+					 SRC.INPUTED_USER,
+					 SRC.INPUTED_USER
+			 )
+    </sql>
+    
+    
+    
+    <!-- 将视频分词表中的数据merge到知识点与视频关系表 -->
+    
+   	<sql name="SQL_MERGE_INTO_FC_TAG_VIDEO">
+	    MERGE INTO FC_TAG_VIDEO FTV
+		USING (SELECT VT_C.VIDEO_ID, T.TAG_ID, VT_C.CHECKED_TIME
+		         FROM (SELECT VT_B.VIDEO_ID,
+		                      VT_B.CHECKED_TIME,
+		                      SUBSTR(VT_B.CHECKED_TAG_LIST,
+		                             INSTR(VT_B.CHECKED_TAG_LIST, ',', 1, C.LV) + 1,
+		                             INSTR(VT_B.CHECKED_TAG_LIST, ',', 1, C.LV + 1) -
+		                             INSTR(VT_B.CHECKED_TAG_LIST, ',', 1, C.LV) - 1) KEYWORD
+		                 FROM (SELECT VT_A.VIDEO_ID,
+		                              VT_A.CHECKED_TIME,
+		                              ',' || VT_A.CHECKED_TAG_LIST || ',' CHECKED_TAG_LIST,
+		                              LENGTH(VT_A.CHECKED_TAG_LIST) -
+		                              LENGTH(REPLACE(VT_A.CHECKED_TAG_LIST, ',', '')) + 1 CNT
+		                         FROM FC_VIDEO_TAG VT_A
+		                        WHERE VT_A.CHECKED_TAG_LIST IS NOT NULL) VT_B
+		                INNER JOIN (SELECT LEVEL LV FROM DUAL CONNECT BY LEVEL &lt; 100) C
+		                   ON C.LV &lt;= VT_B.CNT
+		                WHERE 1 = 1) VT_C
+		         LEFT JOIN FC_TAG T
+		           ON T.TAG_NAME = VT_C.KEYWORD
+		         LEFT JOIN FC_TAG_VIDEO TV
+		           ON TV.TAG_ID = T.TAG_ID
+		          AND TV.VIDEO_ID = VT_C.VIDEO_ID
+		        WHERE (TV.UPDATED_TIME IS NULL OR
+		              VT_C.CHECKED_TIME &gt; TV.UPDATED_TIME)
+		          AND ROWNUM &lt; 100000) SRC
+		ON (SRC.VIDEO_ID = FTV.VIDEO_ID AND SRC.TAG_ID = FTV.TAG_ID)
+		WHEN MATCHED THEN
+		  UPDATE SET FTV.UPDATED_TIME = SRC.CHECKED_TIME
+		WHEN NOT MATCHED THEN
+		  INSERT
+		    (
+			     VIDEO_ID, 
+				 TAG_ID, 
+				 MATCHING_MODE, 
+				 UPDATED_USER, 
+				 UPDATED_TIME
+			)
+		  VALUES
+		    (
+			     SRC.VIDEO_ID, 
+				 SRC.TAG_ID, 
+				 '0', 
+				 'SYSTEM', 
+				 SRC.CHECKED_TIME
+			)
+    </sql>
+    
+    
+    <!-- 更新知识点与视频关系表 -->
+    <sql name="SQL_REFRESH_FC_TAG_VIDEO">
+    	DELETE FROM FC_TAG_VIDEO F
+		 WHERE EXISTS (SELECT 1
+		          FROM (SELECT FTV.TAG_ID, FTV.VIDEO_ID
+		                  FROM (SELECT TV.VIDEO_ID,
+		                               MAX(TV.UPDATED_TIME) MAX_UPDATED_TIME
+		                          FROM FC_TAG_VIDEO TV
+		                         GROUP BY TV.VIDEO_ID) SRC
+		                 INNER JOIN FC_TAG_VIDEO FTV
+		                    ON FTV.VIDEO_ID = SRC.VIDEO_ID
+		                 WHERE FTV.UPDATED_TIME &lt; SRC.MAX_UPDATED_TIME) T
+		         WHERE F.TAG_ID = T.TAG_ID
+		           AND F.VIDEO_ID = T.VIDEO_ID)
+    </sql>
+    
+    
+    <sql name="SQL_TAG_REL">
+	    SELECT T2.TAG_NAME, T2.TAG_ID
+	          FROM KB_TAG T
+	         INNER JOIN KB_TAG_RELATION_WEIGHT TR
+	            ON T.TAG_ID = TR.TAG_ID
+	         INNER JOIN KB_TAG T2
+	            ON T2.TAG_ID = TR.RE_TAG_ID
+	         WHERE T.TAG_NAME LIKE '%你%'
+    </sql>
+    
+    
+    
+    
+    <sql name="xxxx">
+    	[{"guid": "de8210e4790345568551c2572faec","recommend_list": {"CLASS":{"COUNT":"0","LIST":[]},"SOURCE": {"COUNT":"0","LIST":[]},"TAG":{"COUNT":"0","LIST":[]}}}]
+    </sql>
+    
+    
+    
+    
+    
+</sql_codes>

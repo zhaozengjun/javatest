@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+<entry key="profiler.settings.instrument.empty.methods">true</entry>
+<entry key="ProfilerCPUSettings_profile_runnables">true</entry>
+<entry key="ProfilerCPUSettings_filter_type">2</entry>
+<entry key="ProfilerMemorySettings_track_every">10</entry>
+<entry key="ProfilerMemorySettings_mode">4</entry>
+<entry key="ProfilerCPUSettings_root_classes">cn.itcast.heima2.**
+com.collection.**
+com.core.**
+com.cpu.**
+com.db.**
+com.file.**
+com.if_test.**
+com.java_youhua.buffer.**
+com.java_youhua.decorator.**
+com.java_youhua.jvm.**
+com.java_youhua.list.**
+com.java_youhua.map.**
+com.java_youhua.nio.**
+com.java_youhua.observe.**
+com.java_youhua.proxy.**
+com.java_youhua.reference.**
+com.java_youhua.singleton.**
+com.java_youhua.string.**
+com.javaweb.**
+com.junit.**
+com.jvm.**
+com.pattern.simplefactory.**
+com.random.**
+com.reflect.**
+com.restful.**
+com.string.**
+com.test.**
+com.thread.**
+queue.**
+read.**
+syn.**
+util.**
+</entry>
+<entry key="ProfilerCPUSettings_filter_value">cn.itcast.heima2.*,
+com.collection.*,
+com.core.*,
+com.cpu.*,
+com.db.*,
+com.file.*,
+com.if_test.*,
+com.java_youhua.buffer.*,
+com.java_youhua.decorator.*,
+com.java_youhua.jvm.*,
+com.java_youhua.list.*,
+com.java_youhua.map.*,
+com.java_youhua.nio.*,
+com.java_youhua.observe.*,
+com.java_youhua.proxy.*,
+com.java_youhua.reference.*,
+com.java_youhua.singleton.*,
+com.java_youhua.string.*,
+com.javaweb.*,
+com.junit.*,
+com.jvm.*,
+com.pattern.simplefactory.*,
+com.random.*,
+com.reflect.*,
+com.restful.*,
+com.string.*,
+com.test.*,
+com.thread.*,
+queue.*,
+read.*,
+syn.*,
+util.*</entry>
+<entry key="profiler.settings.istrument.getter.setter.methods">true</entry>
+<entry key="myeclipse.profiling.mode">0</entry>
+<entry key="ProfilerMemorySettings_stacktraces">-1</entry>
+</properties>
