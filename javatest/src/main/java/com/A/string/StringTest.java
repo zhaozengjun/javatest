@@ -29,5 +29,6 @@ public class StringTest {
 		System.out.println(b == compare);
 		System.out.println(d == compare);
 		System.out.println(e == compare);
+		
 	}
 }
